@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG 图像参考库 — BCI Research</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #c9d1d9; --text-dim: #8b949e; --accent: #58a6ff;
+    --accent-green: #3fb950; --accent-orange: #d2991d;
+    --accent-red: #f85149; --accent-purple: #a371f7;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
+
+  /* ── sidebar ── */
+  .sidebar { width:260px; min-width:260px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:20px; overflow-y:auto; }
+  .sidebar h1 { font-size:1.1rem; font-weight:600; margin-bottom:4px; letter-spacing:-0.3px; }
+  .sidebar .subtitle { font-size:0.75rem; color:var(--text-dim); margin-bottom:20px; }
+  .search-box { width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.85rem; margin-bottom:20px; outline:none; }
+  .search-box:focus { border-color:var(--accent); } .search-box::placeholder { color:var(--text-dim); }
+  .cat-group { margin-bottom:18px; }
+  .cat-group-title { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-dim); margin-bottom:6px; padding-left:2px; }
+  .cat-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; font-size:0.88rem; transition:background 0.15s; border:none; background:none; color:var(--text); width:100%; text-align:left; }
+  .cat-item:hover { background:rgba(255,255,255,0.04); } .cat-item.active { background:rgba(88,166,255,0.12); color:var(--accent); }
+  .cat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .cat-count { margin-left:auto; font-size:0.75rem; color:var(--text-dim); }
+
+  /* ── main ── */
+  .main { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+  .tab-bar { display:flex; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+  .tab-btn { padding:12px 24px; border:none; background:none; color:var(--text-dim); font-size:0.88rem; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; font-family:inherit; }
+  .tab-btn:hover { color:var(--text); } .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-content { display:none; flex:1; overflow:hidden; }
+  .tab-content.active { display:flex; flex-direction:column; }
+
+  /* ── gallery ── */
+  .gallery-inner { padding:24px 32px; overflow-y:auto; flex:1; }
+  .main-header { margin-bottom:20px; } .main-header h2 { font-size:1.25rem; font-weight:600; }
+  .main-header .result-count { font-size:0.8rem; color:var(--text-dim); margin-top:2px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; transition:border-color 0.15s,transform 0.15s; }
+  .card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .card canvas { width:100%; height:160px; display:block; background:#0a0e14; }
+  .card-body { padding:14px 16px; } .card-title { font-size:0.92rem; font-weight:600; margin-bottom:4px; }
+  .card-desc { font-size:0.8rem; color:var(--text-dim); line-height:1.4; margin-bottom:8px; }
+  .card-tags { display:flex; gap:6px; flex-wrap:wrap; }
+  .tag { font-size:0.7rem; padding:2px 8px; border-radius:10px; font-weight:500; }
+  .tag-delta{background:rgba(163,113,247,0.15);color:var(--accent-purple)}.tag-theta{background:rgba(88,166,255,0.15);color:var(--accent)}.tag-alpha{background:rgba(63,185,80,0.15);color:var(--accent-green)}.tag-beta{background:rgba(210,153,29,0.15);color:var(--accent-orange)}.tag-gamma{background:rgba(248,81,73,0.15);color:var(--accent-red)}.tag-bci{background:rgba(88,166,255,0.15);color:var(--accent)}.tag-artifact{background:rgba(248,81,73,0.15);color:var(--accent-red)}
+
+  /* ── overlay ── */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+  .overlay.open { opacity:1; pointer-events:auto; }
+  .overlay-content { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px; max-width:800px; width:90vw; max-height:85vh; overflow-y:auto; }
+  .overlay-content canvas { width:100%; height:280px; border-radius:8px; background:#0a0e14; margin-bottom:18px; }
+  .overlay-content h3 { font-size:1.3rem; margin-bottom:6px; } .overlay-content .overlay-freq { font-size:0.85rem; color:var(--accent); margin-bottom:12px; }
+  .overlay-content .overlay-desc { font-size:0.9rem; color:var(--text-dim); line-height:1.6; margin-bottom:14px; }
+  .overlay-content .overlay-bci { background:rgba(88,166,255,0.06); border-left:2px solid var(--accent); padding:12px 16px; border-radius:0 6px 6px 0; font-size:0.85rem; line-height:1.5; color:var(--text); }
+  .overlay-close { position:absolute; top:16px; right:16px; width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .overlay-close:hover { background:var(--border); } .empty-state { text-align:center; padding:60px 20px; color:var(--text-dim); } .empty-state .icon { font-size:2.5rem; margin-bottom:12px; }
+
+  /* ── simulator layout ── */
+  .sim-layout { display:flex; flex:1; overflow:hidden; min-height:0; }
+  .sim-left { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+  .sim-canvas-wrap { flex:1; overflow:hidden; padding:4px 8px; min-height:0; cursor:pointer; }
+  .sim-canvas-wrap canvas { width:100%; height:100%; display:block; background:#080c12; border-radius:8px; }
+
+  /* ── analysis panel ── */
+  .analysis-panel {
+    width:280px; min-width:280px; background:var(--surface);
+    border-left:1px solid var(--border); overflow-y:auto;
+    padding:12px; display:flex; flex-direction:column; gap:10px;
+  }
+  .panel-section { border:1px solid var(--border); border-radius:8px; padding:10px; }
+  .panel-label { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-dim); margin-bottom:6px; }
+  .panel-select { width:100%; padding:5px 8px; border-radius:5px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.8rem; outline:none; font-family:inherit; }
+  .panel-select:focus { border-color:var(--accent); }
+  .band-bar-wrap { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+  .band-bar-label { font-size:0.72rem; font-weight:600; width:14px; text-align:right; flex-shrink:0; }
+  .band-bar-track { flex:1; height:8px; background:rgba(255,255,255,0.04); border-radius:4px; overflow:hidden; }
+  .band-bar-fill { height:100%; border-radius:4px; transition:width 0.3s; }
+  .band-bar-val { font-size:0.65rem; color:var(--text-dim); width:36px; text-align:right; flex-shrink:0; }
+  .topo-canvas { width:100%; aspect-ratio:1; background:#080c12; border-radius:6px; display:block; }
+
+  /* ── event buttons ── */
+  .evt-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .evt-btn { padding:6px 8px; border-radius:5px; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; font-size:0.72rem; font-family:inherit; transition:all 0.12s; text-align:center; }
+  .evt-btn:hover { border-color:var(--accent); background:rgba(88,166,255,0.08); }
+  .evt-log { max-height:80px; overflow-y:auto; font-size:0.68rem; color:var(--text-dim); margin-top:4px; }
+  .evt-log-entry { padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.03); font-family:monospace; }
+
+  /* ── record button ── */
+  .rec-btn { width:100%; padding:8px; border-radius:6px; border:1px solid var(--accent-red); background:rgba(248,81,73,0.1); color:var(--accent-red); cursor:pointer; font-size:0.8rem; font-family:inherit; font-weight:600; transition:all 0.15s; }
+  .rec-btn:hover { background:rgba(248,81,73,0.2); }
+  .rec-btn.recording { animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .rec-time { font-size:0.7rem; color:var(--text-dim); text-align:center; margin-top:2px; }
+
+  /* ── controls bar ── */
+  .controls-bar { display:flex; align-items:center; gap:14px; padding:8px 20px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+  .controls-bar label { font-size:0.72rem; color:var(--text-dim); white-space:nowrap; }
+  .controls-bar select { padding:5px 10px; border-radius:5px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.82rem; outline:none; font-family:inherit; }
+  .controls-bar select:focus { border-color:var(--accent); }
+  .ctrl-group { display:flex; align-items:center; gap:6px; }
+  .ctrl-slider { width:80px; accent-color:var(--accent); }
+  .ctrl-btn { padding:5px 14px; border-radius:5px; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; font-size:0.8rem; font-family:inherit; transition:all 0.15s; }
+  .ctrl-btn:hover { border-color:var(--accent); } .ctrl-btn.active-ctrl { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .ctrl-val { font-size:0.7rem; color:var(--text-dim); min-width:28px; text-align:right; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside class="sidebar" id="sidebar">
+  <h1>EEG 图像参考库</h1>
+  <p class="subtitle">Brain-Computer Interface</p>
+  <input class="search-box" id="search" placeholder="搜索..." autocomplete="off">
+  <div class="cat-group">
+    <div class="cat-group-title">正常节律</div>
+    <button class="cat-item" data-cat="delta"><span class="cat-dot" style="background:var(--accent-purple)"></span>Delta δ<span class="cat-count" data-count="delta"></span></button>
+    <button class="cat-item" data-cat="theta"><span class="cat-dot" style="background:var(--accent)"></span>Theta θ<span class="cat-count" data-count="theta"></span></button>
+    <button class="cat-item" data-cat="alpha"><span class="cat-dot" style="background:var(--accent-green)"></span>Alpha α<span class="cat-count" data-count="alpha"></span></button>
+    <button class="cat-item" data-cat="beta"><span class="cat-dot" style="background:var(--accent-orange)"></span>Beta β<span class="cat-count" data-count="beta"></span></button>
+    <button class="cat-item" data-cat="gamma"><span class="cat-dot" style="background:var(--accent-red)"></span>Gamma γ<span class="cat-count" data-count="gamma"></span></button>
+  </div>
+  <div class="cat-group">
+    <div class="cat-group-title">BCI 范式</div>
+    <button class="cat-item" data-cat="bci"><span class="cat-dot" style="background:var(--accent)"></span>运动想象 ERD/ERS<span class="cat-count" data-count="bci"></span></button>
+    <button class="cat-item" data-cat="bci"><span class="cat-dot" style="background:var(--accent-green)"></span>SSVEP<span class="cat-count" data-count="bci"></span></button>
+    <button class="cat-item" data-cat="bci"><span class="cat-dot" style="background:var(--accent-orange)"></span>P300 / ERN<span class="cat-count" data-count="bci"></span></button>
+    <button class="cat-item" data-cat="bci"><span class="cat-dot" style="background:var(--accent-purple)"></span>μ 节律 / SCP / 混合范式<span class="cat-count" data-count="bci"></span></button>
+  </div>
+  <div class="cat-group">
+    <div class="cat-group-title">常见伪迹</div>
+    <button class="cat-item" data-cat="artifact"><span class="cat-dot" style="background:var(--accent-red)"></span>眼电 / 肌电 / 噪声<span class="cat-count" data-count="artifact"></span></button>
+  </div>
+  <button class="cat-item active" data-cat="all" style="margin-top:8px; font-weight:500;">显示全部</button>
+</aside>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<div class="main" id="main">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="gallery">图像参考库</button>
+    <button class="tab-btn" data-tab="simulator">动态仿真平台</button>
+  </div>
+  <div class="tab-content active" id="tab-gallery">
+    <div class="gallery-inner">
+      <div class="main-header"><h2 id="mainTitle">全部图像</h2><p class="result-count" id="resultCount"></p></div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+  <div class="tab-content" id="tab-simulator">
+    <div class="sim-layout">
+      <div class="sim-left">
+        <div class="sim-canvas-wrap" id="simCanvasWrap">
+          <canvas id="simCanvas"></canvas>
+        </div>
+      </div>
+      <div class="analysis-panel" id="analysisPanel">
+        <!-- Channel selector -->
+        <div class="panel-section">
+          <div class="panel-label">分析通道</div>
+          <select class="panel-select" id="chanSelect"></select>
+        </div>
+        <!-- FFT Spectrum -->
+        <div class="panel-section">
+          <div class="panel-label">实时频谱 (0–60 Hz)</div>
+          <canvas id="spectrumCanvas" style="width:100%;height:130px;background:#080c12;border-radius:6px;"></canvas>
+        </div>
+        <!-- Band Powers -->
+        <div class="panel-section">
+          <div class="panel-label">频段功率</div>
+          <div id="bandBars"></div>
+        </div>
+        <!-- Topographic Map -->
+        <div class="panel-section">
+          <div class="panel-label">脑地形图</div>
+          <select class="panel-select" id="topoBand" style="margin-bottom:6px;">
+            <option value="delta">Delta (0.5–4 Hz)</option>
+            <option value="theta">Theta (4–8 Hz)</option>
+            <option value="alpha" selected>Alpha (8–13 Hz)</option>
+            <option value="beta">Beta (13–30 Hz)</option>
+            <option value="gamma">Gamma (30–60 Hz)</option>
+          </select>
+          <canvas class="topo-canvas" id="topoCanvas"></canvas>
+        </div>
+        <!-- Event Injection -->
+        <div class="panel-section">
+          <div class="panel-label">事件注入</div>
+          <div class="evt-grid">
+            <button class="evt-btn" data-evt="stim">视觉刺激</button>
+            <button class="evt-btn" data-evt="mi">运动想象</button>
+            <button class="evt-btn" data-evt="blink">眨眼</button>
+            <button class="evt-btn" data-evt="error">错误反应</button>
+          </div>
+          <div class="evt-log" id="evtLog"><span style="color:var(--text-dim)">暂无事件</span></div>
+        </div>
+        <!-- Recording -->
+        <div class="panel-section">
+          <div class="panel-label">数据录制</div>
+          <button class="rec-btn" id="recBtn">🔴 开始录制</button>
+          <div class="rec-time" id="recTime"></div>
+        </div>
+      </div>
+    </div>
+    <div class="controls-bar" id="controlsBar"></div>
+  </div>
+</div>
+
+<!-- ═══════════ OVERLAY ═══════════ -->
+<div class="overlay" id="overlay">
+  <div class="overlay-content" id="overlayContent"></div>
+  <button class="overlay-close" id="overlayClose">&times;</button>
+</div>
+
+<script>
+var TAU=2*Math.PI;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+// ═══════════════════════════════════════════ STATIC WAVEFORM RENDERER
+function drawEEG(canvas,seed,params){
+  var w=canvas.width=canvas.clientWidth*2||800,h=canvas.height=320,ctx=canvas.getContext('2d'),rng=mulberry32(seed);
+  ctx.fillStyle='#0a0e14';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=0.5;
+  for(var y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  for(var x=0;x<w;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  var samples=params.samples||600,data=new Float64Array(samples);
+  if(params.type==='transient'){
+    var ei=Math.floor(samples*params.eventPos),ew=params.eventWidth||40;
+    for(var i=0;i<samples;i++){var t=i/samples,val=0;for(var k=0;k<params.bgComponents.length;k++){var bg=params.bgComponents[k];val+=bg.amp*Math.sin(TAU*bg.freq*t*params.duration+rng()*Math.PI);}var dist=Math.abs(i-ei)/ew;if(dist<2.5)val+=params.eventAmp*Math.exp(-dist*dist)*(params.eventSign||1);val+=(rng()-0.5)*2*(params.noise||0.015);data[i]=val;}
+  }else if(params.type==='burst'){
+    var bs=Math.floor(samples*0.3),be=Math.floor(samples*0.45);
+    for(var i=0;i<samples;i++){var t=i/samples,val=0;for(var k=0;k<params.bgComponents.length;k++){var bg=params.bgComponents[k];val+=bg.amp*Math.sin(TAU*bg.freq*t*params.duration+rng()*Math.PI);}if(i>=bs&&i<=be){var env=Math.sin(Math.PI*(i-bs)/(be-bs));for(var k=0;k<params.burstComponents.length;k++){var bc=params.burstComponents[k];val+=bc.amp*env*Math.sin(TAU*bc.freq*t*params.duration+rng()*Math.PI);}}val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }else if(params.type==='erds'){
+    var ci=Math.floor(samples*0.25);
+    for(var i=0;i<samples;i++){var t=i/samples,val=0,env=1;if(i>ci){var rt=(i-ci)/(samples-ci);env=1-0.6*Math.exp(-rt*3)+0.5*(1-Math.exp(-rt*5))*(rt>0.15?1:0);}for(var k=0;k<params.components.length;k++){var c=params.components[k];val+=c.amp*env*Math.sin(TAU*c.freq*t*params.duration+rng()*Math.PI);}val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }else if(params.type==='ssvep'){
+    for(var i=0;i<samples;i++){var t=i/samples,val=0;for(var k=0;k<params.components.length;k++){var c=params.components[k];val+=c.amp*Math.sin(TAU*c.freq*t*params.duration);}val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }else if(params.type==='mu'){
+    for(var i=0;i<samples;i++){var t=i/samples,val=0,mod=1;if(t>0.3&&t<0.7)mod=0.2;for(var k=0;k<params.components.length;k++){var c=params.components[k];val+=c.amp*mod*Math.sin(TAU*c.freq*t*params.duration+rng()*Math.PI);}val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }else if(params.type==='scp'){
+    for(var i=0;i<samples;i++){var t=i/samples,val=0,slow=0;if(t>0.25)slow=-0.55*(1-Math.exp(-(t-0.25)*3));for(var k=0;k<params.bgComponents.length;k++){var bg=params.bgComponents[k];val+=bg.amp*Math.sin(TAU*bg.freq*t*params.duration+rng()*Math.PI);}val+=slow;val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }else if(params.type==='hybrid'){
+    for(var i=0;i<samples;i++){var t=i/samples,val=0,env=1;if(t>0.3)env=0.3;for(var k=0;k<params.miComponents.length;k++){var c=params.miComponents[k];val+=c.amp*env*Math.sin(TAU*c.freq*t*params.duration+rng()*Math.PI);}for(var k=0;k<params.ssvepComponents.length;k++){var c=params.ssvepComponents[k];val+=c.amp*Math.sin(TAU*c.freq*t*params.duration);}val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }else{
+    for(var i=0;i<samples;i++){var t=i/samples,val=0;for(var k=0;k<params.components.length;k++){var c=params.components[k],mod=1+0.15*Math.sin(TAU*0.3*t*params.duration+k);val+=c.amp*mod*Math.sin(TAU*c.freq*t*params.duration+rng()*0.3*Math.PI);}val+=(rng()-0.5)*2*(params.noise||0.01);data[i]=val;}
+  }
+  ctx.strokeStyle=params.color||'#58a6ff';ctx.lineWidth=1.8;ctx.shadowColor=params.color||'#58a6ff';ctx.shadowBlur=4;ctx.beginPath();
+  var yMid=h/2,xScale=w/samples,yScale=0.5*h;
+  for(var i=0;i<samples;i++){var x=i*xScale,y=yMid-data[i]*yScale;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+  ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='10px monospace';ctx.fillText((params.duration||2)+'s',w-30,h-8);
+}
+
+// ═══════════════════════════════════════════ GALLERY DATASET
+var eegData=[
+  {id:'delta',cat:'delta',title:'Delta 波 (δ)',freq:'0.5 – 4 Hz',desc:'高振幅慢波，主导深度睡眠（NREM Stage 3）。在成人清醒状态下极少出现，额叶区域最为显著。',bci:'Delta 波在 BCI 中较少直接使用，但可用于睡眠分期监测、昏迷评估，以及作为麻醉深度指标。',color:'#a371f7',tag:'delta',type:'standard',duration:2,components:[{freq:0.8,amp:0.9},{freq:1.5,amp:0.5},{freq:2.5,amp:0.3},{freq:3.5,amp:0.15}],noise:0.02},
+  {id:'theta',cat:'theta',title:'Theta 波 (θ)',freq:'4 – 8 Hz',desc:'中低频率波，出现在困倦、冥想及浅睡眠阶段。与记忆编码和空间导航相关，在海马体中尤为明显。',bci:'Theta 波可用于监测注意力漂移和疲劳状态，在神经反馈训练中作为放松/专注状态的指标。',color:'#58a6ff',tag:'theta',type:'standard',duration:1.5,components:[{freq:5,amp:0.7},{freq:6.5,amp:0.45},{freq:7.5,amp:0.25}],noise:0.018},
+  {id:'alpha',cat:'alpha',title:'Alpha 波 (α)',freq:'8 – 13 Hz',desc:'枕叶主导的节律性活动，闭眼放松时最明显，睁眼或集中注意时衰减（Alpha Blocking）。是 EEG 中最经典的节律之一。',bci:'Alpha 波的 ERD/ERS 是运动想象 BCI 的核心特征。闭眼α增强可用于简单的开关控制，也用于神经反馈放松训练。',color:'#3fb950',tag:'alpha',type:'standard',duration:1.2,components:[{freq:10,amp:0.8},{freq:9,amp:0.35},{freq:11.5,amp:0.3}],noise:0.012},
+  {id:'beta',cat:'beta',title:'Beta 波 (β)',freq:'13 – 30 Hz',desc:'低振幅快波，分布于额叶和中央区。与主动思考、专注、焦虑及运动准备相关。',bci:'Beta 节律的 ERD 在运动执行和运动想象中均会出现，可作为运动意图的解码特征。',color:'#d2991d',tag:'beta',type:'standard',duration:0.8,components:[{freq:18,amp:0.45},{freq:22,amp:0.3},{freq:26,amp:0.2},{freq:14,amp:0.25}],noise:0.02},
+  {id:'gamma',cat:'gamma',title:'Gamma 波 (γ)',freq:'30 – 100+ Hz',desc:'极低振幅高频波，与高级认知加工、感知绑定（binding）、注意力和工作记忆相关。需要高采样率设备才能可靠记录。',bci:'高Gamma（>70Hz）在 ECoG 中与精细运动解码高度相关，是侵入式 BCI 的重要特征频段。',color:'#f85149',tag:'gamma',type:'standard',duration:0.4,components:[{freq:40,amp:0.25},{freq:55,amp:0.18},{freq:70,amp:0.12},{freq:85,amp:0.08}],noise:0.03},
+  {id:'erds',cat:'bci',title:'感觉运动节律 ERD/ERS',freq:'运动想象 · α/β 频段',desc:'运动想象时，对侧感觉运动皮层出现 μ 节律（8-12Hz）和 β 节律的功率下降（ERD），随后在想象结束后出现功率反弹（ERS）。这是运动想象 BCI 的神经生理基础。',bci:'用于基于运动想象的 BCI 系统，可解码左手、右手、脚、舌等不同肢体的运动意图。Stroke 康复中的 BCI-FES 系统依赖此模式。',color:'#58a6ff',tag:'bci',type:'erds',duration:3,components:[{freq:10,amp:0.65},{freq:12,amp:0.35},{freq:20,amp:0.2}],noise:0.015},
+  {id:'ssvep',cat:'bci',title:'SSVEP 稳态视觉诱发电位',freq:'视觉刺激频率 · 1-100 Hz',desc:'注视以特定频率闪烁的视觉刺激时，枕叶 EEG 中出现与刺激频率相同（及谐波）的稳态响应。SSVEP 的信噪比高，是 BCI 中信息传输率最高的范式之一。',bci:'基于 SSVEP 的 BCI 可提供多目标选择（如拨号、拼写），ITR 可超过 100 bits/min。适合需要高精度指令输出的场景。',color:'#3fb950',tag:'bci',type:'ssvep',duration:1,components:[{freq:12,amp:0.7},{freq:24,amp:0.3},{freq:36,amp:0.12}],noise:0.01},
+  {id:'p300',cat:'bci',title:'P300 事件相关电位',freq:'~300ms 正向偏转',desc:'在 Oddball 范式中，小概率目标刺激出现后约 300ms，在中央-顶叶区域产生一个正向电位偏转。P300 的波幅与刺激的意外程度和注意力资源分配相关。',bci:'P300 Speller 是最经典的 BCI 应用之一，通过行列闪烁诱发 P300 实现字符输入，适合 ALS 等严重运动障碍患者。',color:'#d2991d',tag:'bci',type:'transient',duration:1,samples:500,bgComponents:[{freq:8,amp:0.25},{freq:15,amp:0.15},{freq:4,amp:0.2}],eventPos:0.35,eventWidth:35,eventAmp:0.55,eventSign:1,noise:0.018},
+  {id:'ern',cat:'bci',title:'错误相关负波 (ERN)',freq:'~50-100ms 负向偏转',desc:'在执行错误反应后 50-100ms，前扣带皮层（ACC）产生一个负向电位偏转。ERN 反映了对错误的自动检测，是性能监控系统的核心组成部分。',bci:'在 BCI 中，ERN 可用于自动纠错：当 BCI 输出错误命令时，大脑自动产生 ERN，系统可据此撤销或修正错误输出，提高 BCI 的可靠性。',color:'#f85149',tag:'bci',type:'transient',duration:0.8,samples:500,bgComponents:[{freq:8,amp:0.2},{freq:18,amp:0.12},{freq:4,amp:0.15}],eventPos:0.3,eventWidth:25,eventAmp:0.5,eventSign:-1,noise:0.02},
+  {id:'mrsp',cat:'bci',title:'运动相关皮层电位 (MRCP)',freq:'缓慢皮层电位 · <5 Hz',desc:'自主运动前约 1-2 秒开始出现的缓慢负向电位漂移（Bereitschaftspotential），反映运动的准备和执行过程。信号频率极低，需要 DC 耦合放大器记录。',bci:'MRCP 可用于检测运动意图的起始时刻，在异步 BCI 和康复机器人中用作触发信号，实现"想动即动"的自发控制。',color:'#a371f7',tag:'bci',type:'transient',duration:3,samples:600,bgComponents:[{freq:1,amp:0.2},{freq:8,amp:0.15},{freq:15,amp:0.1}],eventPos:0.55,eventWidth:150,eventAmp:0.6,eventSign:-1,noise:0.015},
+  {id:'mu',cat:'bci',title:'μ 节律 (Rolandic Rhythm)',freq:'8 – 12 Hz · 中央区弓形波',desc:'位于中央区（C3/C4）的 8-12Hz 节律，独立于枕叶 α。在清醒但运动静息状态下最明显，执行或想象运动时被抑制。μ 节律是运动想象 BCI 最直接的控制信号来源。',bci:'μ 节律的 ERD 是 BCI 中最稳健的控制特征之一。双侧 μ 节律的不对称性可用于分类左右手运动想象，是竞赛级 BCI 系统的首选特征。',color:'#3fb950',tag:'bci',type:'mu',duration:2.5,components:[{freq:9.5,amp:0.7},{freq:11,amp:0.35}],noise:0.012},
+  {id:'scp',cat:'bci',title:'皮层慢电位 (SCP)',freq:'<2 Hz · 缓慢直流偏移',desc:'皮层慢电位是持续数秒的皮层电位漂移。负向 SCP 反映皮层兴奋性升高，正向则反映抑制。通过神经反馈训练，受试者可以学会自主调控 SCP 的极性。',bci:'SCP-BCI 是 Thought Translation Device (TTD) 的基础，用于完全闭锁综合征患者的通信。受试者通过调节 SCP 的正负方向来实现二进制选择。',color:'#a371f7',tag:'bci',type:'scp',duration:4,samples:700,bgComponents:[{freq:2,amp:0.15},{freq:8,amp:0.2},{freq:15,amp:0.1}],noise:0.012},
+  {id:'hybrid',cat:'bci',title:'混合范式 BCI (MI + SSVEP)',freq:'双模态 · α/β + 视觉频率',desc:'同时执行运动想象和注视 SSVEP 刺激。MI 提供连续控制信号（ERD/S），SSVEP 提供离散选择信号。双模态互补可提高 BCI 的指令维度和可靠性。',bci:'混合 BCI 是近年研究热点，MI+SSVEP 组合可将 2-class MI 与 4-target SSVEP 结合，实现多自由度控制，如轮椅导航中的方向+速度同时控制。',color:'#58a6ff',tag:'bci',type:'hybrid',duration:2.5,miComponents:[{freq:10,amp:0.5},{freq:20,amp:0.2}],ssvepComponents:[{freq:15,amp:0.45},{freq:30,amp:0.2}],noise:0.015},
+  {id:'blink',cat:'artifact',title:'眼电伪迹 (EOG) — 眨眼',freq:'<4 Hz · 大振幅偏转',desc:'眨眼产生的巨大正向偏转，振幅可达正常 EEG 的 10 倍以上，在额极电极（Fp1, Fp2）最为明显。',bci:'BCI 预处理中必须去除或校正眼电伪迹，常用方法包括 ICA、回归分析、Hjorth 源推导或直接剔除受污染的试次。',color:'#f85149',tag:'artifact',type:'transient',duration:2,samples:600,bgComponents:[{freq:10,amp:0.18},{freq:20,amp:0.08},{freq:5,amp:0.12}],eventPos:0.4,eventWidth:55,eventAmp:0.85,eventSign:1,noise:0.01},
+  {id:'muscle',cat:'artifact',title:'肌电伪迹 (EMG)',freq:'30-200+ Hz · 高频爆发',desc:'头颈部肌肉收缩产生的宽带高频信号，频率范围远高于皮层 EEG。咬肌和颞肌的激活是主要来源。',bci:'EMG 伪迹会严重污染高频段的皮层信号分析。在基于 γ 或 β 的 BCI 解码中，需要使用 ICA、CSP 空间滤波或高密度电极阵列来分离肌电和脑电成分。',color:'#f85149',tag:'artifact',type:'burst',duration:1.5,samples:600,bgComponents:[{freq:10,amp:0.15},{freq:5,amp:0.1}],burstComponents:[{freq:45,amp:0.6},{freq:70,amp:0.4},{freq:95,amp:0.25},{freq:120,amp:0.15}],noise:0.025},
+  {id:'pop',cat:'artifact',title:'电极弹出伪迹',freq:'瞬时尖峰',desc:'电极与头皮接触不良或阻抗突变引起的瞬时电压跳变，表现为孤立的尖峰或方波样偏转，通常影响单个通道。',bci:'单通道尖峰可通过阈值检测和样条插值修复。多通道同时出现尖峰提示地线或参考电极问题。在线 BCI 中需要实时检测并标记坏导联。',color:'#f85149',tag:'artifact',type:'transient',duration:1.5,samples:600,bgComponents:[{freq:10,amp:0.2},{freq:18,amp:0.1},{freq:5,amp:0.15}],eventPos:0.5,eventWidth:8,eventAmp:0.9,eventSign:1,noise:0.01},
+  {id:'line',cat:'artifact',title:'50Hz 工频干扰',freq:'50 Hz（中国/欧洲）',desc:'电力线产生的 50Hz 正弦波噪声叠加在 EEG 信号上，由电磁感应耦合到电极、线缆和放大器中。',bci:'使用陷波滤波器（Notch Filter, 50±1Hz）去除，但需注意避免在 50Hz 附近的 γ 频段信号丢失。',color:'#f85149',tag:'artifact',type:'ssvep',duration:0.6,components:[{freq:50,amp:0.55},{freq:10,amp:0.15},{freq:20,amp:0.1},{freq:100,amp:0.08}],noise:0.008},
+];
+
+// ═══════════════════════════════════════════ GALLERY STATE
+var activeCat='all',searchQuery='';
+function renderGallery(){
+  var filtered=eegData.filter(function(item){if(activeCat!=='all'&&item.cat!==activeCat)return false;if(searchQuery){var q=searchQuery.toLowerCase();return item.title.indexOf(q)!==-1||item.desc.indexOf(q)!==-1||item.freq.indexOf(q)!==-1;}return true;});
+  document.getElementById('mainTitle').textContent=activeCat==='all'?'全部图像':({delta:'Delta 波 (δ)',theta:'Theta 波 (θ)',alpha:'Alpha 波 (α)',beta:'Beta 波 (β)',gamma:'Gamma 波 (γ)',bci:'BCI 范式',artifact:'常见伪迹'})[activeCat]||activeCat;
+  document.getElementById('resultCount').textContent='共 '+filtered.length+' 张图像';
+  var grid=document.getElementById('grid');
+  if(!filtered.length){grid.innerHTML='<div class="empty-state"><div class="icon">🔍</div><p>未找到匹配的图像</p></div>';return;}
+  grid.innerHTML='';
+  filtered.forEach(function(item){
+    var card=document.createElement('div');card.className='card';card.onclick=function(){openDetail(item);};
+    var cv=document.createElement('canvas');card.appendChild(cv);
+    var body=document.createElement('div');body.className='card-body';
+    body.innerHTML='<div class="card-title">'+item.title+'</div><div class="card-desc">'+item.desc+'</div><div class="card-tags"><span class="tag tag-'+item.tag+'">'+item.freq+'</span></div>';
+    card.appendChild(body);grid.appendChild(card);
+    requestAnimationFrame(function(){drawEEG(cv,item.title.split('').reduce(function(a,c){return a+c.charCodeAt(0)},0),item);});
+  });
+}
+function updateCatCounts(){var counts={};eegData.forEach(function(item){counts[item.cat]=(counts[item.cat]||0)+1;});document.querySelectorAll('[data-count]').forEach(function(el){el.textContent=counts[el.dataset.count]||0;});}
+function openDetail(item){var overlay=document.getElementById('overlay'),content=document.getElementById('overlayContent');content.innerHTML='<canvas id="detailCanvas"></canvas><h3>'+item.title+'</h3><div class="overlay-freq">'+item.freq+'</div><div class="overlay-desc">'+item.desc+'</div><div class="overlay-bci">'+item.bci.replace(/\*\*/g,'')+'</div>';overlay.classList.add('open');requestAnimationFrame(function(){var dc=document.getElementById('detailCanvas');dc.height=320;drawEEG(dc,item.title.split('').reduce(function(a,c){return a+c.charCodeAt(0)},0)+999,item);});}
+function closeDetail(){document.getElementById('overlay').classList.remove('open');}
+
+// ═══════════════════════════════════════════ DYNAMIC SIMULATOR ENGINE
+var BUFSIZE=2048,SAMPLE_RATE=128,SIM_FPS=30;
+var channels=[
+  {name:'Fp1',region:'pf',color:'#d2991d'},
+  {name:'Fp2',region:'pf',color:'#d2991d'},
+  {name:'F3',region:'f',color:'#3fb950'},
+  {name:'F4',region:'f',color:'#3fb950'},
+  {name:'C3',region:'c',color:'#58a6ff'},
+  {name:'C4',region:'c',color:'#58a6ff'},
+  {name:'O1',region:'o',color:'#a371f7'},
+  {name:'O2',region:'o',color:'#a371f7'}
+];
+var simState={
+  running:true,speed:1,gain:1.2,noise:0.02,scenario:'eyes-closed',
+  bandGains:{delta:1,theta:1,alpha:1,beta:1,gamma:1},
+  buffers:[],writePos:[],phase:[],time:0,frameCount:0,
+  selectedChan:4, // default C3
+  events:[], // {time,type,label}
+  recording:false,recBuf:[],recStartTime:0
+};
+channels.forEach(function(){simState.buffers.push(new Float64Array(BUFSIZE));simState.writePos.push(0);simState.phase.push({});});
+
+var scenarios={
+  'eyes-closed':{label:'闭眼放松',icon:'😌',regions:{pf:{delta:0.1,theta:0.3,alpha:0.7,beta:0.15,gamma:0.05},f:{delta:0.1,theta:0.25,alpha:0.6,beta:0.2,gamma:0.08},c:{delta:0.08,theta:0.2,alpha:0.55,beta:0.2,gamma:0.08},o:{delta:0.05,theta:0.2,alpha:1.0,beta:0.1,gamma:0.04}}},
+  'eyes-open':{label:'睁眼专注',icon:'👁',regions:{pf:{delta:0.08,theta:0.15,alpha:0.2,beta:0.7,gamma:0.3},f:{delta:0.08,theta:0.15,alpha:0.2,beta:0.75,gamma:0.3},c:{delta:0.05,theta:0.12,alpha:0.15,beta:0.6,gamma:0.25},o:{delta:0.05,theta:0.1,alpha:0.12,beta:0.5,gamma:0.2}}},
+  'mi-left':{label:'左手运动想象',icon:'🤚',regions:{pf:{delta:0.1,theta:0.2,alpha:0.5,beta:0.3,gamma:0.1},f:{delta:0.1,theta:0.2,alpha:0.5,beta:0.3,gamma:0.1},c:{delta:0.08,theta:0.18,alpha:0.5,beta:0.3,gamma:0.1},o:{delta:0.05,theta:0.2,alpha:0.8,beta:0.15,gamma:0.08}},channelOverrides:{C4:{delta:0.06,theta:0.12,alpha:0.15,beta:0.1,gamma:0.08}}},
+  'mi-right':{label:'右手运动想象',icon:'🫱',regions:{pf:{delta:0.1,theta:0.2,alpha:0.5,beta:0.3,gamma:0.1},f:{delta:0.1,theta:0.2,alpha:0.5,beta:0.3,gamma:0.1},c:{delta:0.08,theta:0.18,alpha:0.5,beta:0.3,gamma:0.1},o:{delta:0.05,theta:0.2,alpha:0.8,beta:0.15,gamma:0.08}},channelOverrides:{C3:{delta:0.06,theta:0.12,alpha:0.15,beta:0.1,gamma:0.08}}},
+  'ssvep-12hz':{label:'SSVEP 12Hz 刺激',icon:'👀',regions:{pf:{delta:0.1,theta:0.15,alpha:0.3,beta:0.3,gamma:0.1},f:{delta:0.1,theta:0.15,alpha:0.3,beta:0.3,gamma:0.1},c:{delta:0.08,theta:0.12,alpha:0.3,beta:0.3,gamma:0.1},o:{delta:0.05,theta:0.1,alpha:0.2,beta:0.2,gamma:0.1}},extras:[{freq:12,amp:0.6,region:'o'},{freq:24,amp:0.2,region:'o'},{freq:36,amp:0.08,region:'o'}]},
+  'sleep-n2':{label:'睡眠 N2 期',icon:'😴',regions:{pf:{delta:0.5,theta:0.6,alpha:0.1,beta:0.05,gamma:0.02},f:{delta:0.55,theta:0.55,alpha:0.1,beta:0.05,gamma:0.02},c:{delta:0.5,theta:0.5,alpha:0.1,beta:0.05,gamma:0.02},o:{delta:0.4,theta:0.45,alpha:0.1,beta:0.05,gamma:0.02}},extras:[{freq:13,amp:0.25,region:'c',burst:true,burstPeriod:3,burstDur:0.8},{freq:14,amp:0.2,region:'c',burst:true,burstPeriod:3,burstDur:0.8}]},
+  'spike-wave':{label:'癫痫样放电 (3Hz)',icon:'⚡',regions:{pf:{delta:0.15,theta:0.2,alpha:0.3,beta:0.2,gamma:0.1},f:{delta:0.15,theta:0.2,alpha:0.3,beta:0.2,gamma:0.1},c:{delta:0.15,theta:0.2,alpha:0.3,beta:0.2,gamma:0.1},o:{delta:0.15,theta:0.2,alpha:0.3,beta:0.2,gamma:0.1}},extras:[{freq:3,amp:0.8,region:'all',spike:true}]},
+  'emg-noise':{label:'肌电干扰',icon:'💪',regions:{pf:{delta:0.08,theta:0.15,alpha:0.3,beta:0.3,gamma:0.15},f:{delta:0.08,theta:0.15,alpha:0.3,beta:0.3,gamma:0.15},c:{delta:0.08,theta:0.15,alpha:0.3,beta:0.3,gamma:0.15},o:{delta:0.08,theta:0.15,alpha:0.4,beta:0.2,gamma:0.1}},extras:[{freq:45,amp:0.35,region:'pf',noiseBurst:true},{freq:60,amp:0.25,region:'pf',noiseBurst:true},{freq:80,amp:0.15,region:'f',noiseBurst:true},{freq:90,amp:0.12,region:'f',noiseBurst:true}]}
+};
+
+function getChannelWeights(chName,scenario){
+  var ch=channels.find(function(c){return c.name===chName;}),sc=scenarios[scenario],base=sc.regions[ch.region],ov=(sc.channelOverrides||{})[chName],w={};
+  ['delta','theta','alpha','beta','gamma'].forEach(function(b){w[b]=ov?ov[b]:base[b];});return w;
+}
+
+var bgComps=[
+  {band:'delta',freqs:[0.8,1.5,2.5,3.5],baseAmps:[0.35,0.2,0.12,0.08]},
+  {band:'theta',freqs:[5,6.5,7.5],baseAmps:[0.28,0.18,0.12]},
+  {band:'alpha',freqs:[8.5,10,11.5],baseAmps:[0.3,0.22,0.15]},
+  {band:'beta',freqs:[16,20,25],baseAmps:[0.15,0.1,0.06]},
+  {band:'gamma',freqs:[40,55,70],baseAmps:[0.06,0.04,0.02]}
+];
+
+function generateSamples(chanIdx,count,dt,scenario,time0){
+  var chName=channels[chanIdx].name,ch=channels[chanIdx],sc=scenarios[scenario],w=getChannelWeights(chName,scenario),bg=simState.bandGains,noiseAmp=simState.noise,samples=new Float64Array(count);
+  if(!simState.phase[chanIdx])simState.phase[chanIdx]={};
+  for(var i=0;i<count;i++){var t=time0+i*dt,val=0;
+    for(var j=0;j<bgComps.length;j++){var band=bgComps[j],bandGain=w[band.band]*bg[band.band];for(var k=0;k<band.freqs.length;k++){var pk=band.band+'_'+k;if(!(pk in simState.phase[chanIdx]))simState.phase[chanIdx][pk]=Math.random()*TAU;val+=band.baseAmps[k]*bandGain*Math.sin(simState.phase[chanIdx][pk]+TAU*band.freqs[k]*t);}}
+    if(sc.extras){for(var j=0;j<sc.extras.length;j++){var ex=sc.extras[j];if(ex.region!=='all'&&ex.region!==ch.region)continue;var exAmp=ex.amp;if(ex.burst){var bp=(t%ex.burstPeriod)/ex.burstPeriod,bev=bp<(ex.burstDur/ex.burstPeriod)?Math.sin(Math.PI*bp*(ex.burstPeriod/ex.burstDur)):0;exAmp*=bev;}if(ex.spike){var sp=(t*ex.freq)%1;if(sp<0.08)exAmp*=Math.exp(-sp*30);else if(sp<0.5)exAmp*=-0.3*Math.sin(Math.PI*(sp-0.08)/0.42);else exAmp*=0;}if(ex.noiseBurst){var nev=0.5+0.5*Math.sin(t*1.7)*Math.sin(t*2.3);exAmp*=Math.max(0,nev);}var ek='ex_'+j;if(!(ek in simState.phase[chanIdx]))simState.phase[chanIdx][ek]=Math.random()*TAU;val+=exAmp*Math.sin(simState.phase[chanIdx][ek]+TAU*ex.freq*t);}}
+    val+=(Math.random()-0.5)*2*noiseAmp;samples[i]=val;
+  }return samples;
+}
+
+// ═══════════════════════════════════════════ ANALYSIS FUNCTIONS
+
+// DFT spectrum: 128 bins from 0.5 to 60 Hz
+var FFT_BINS=128,FFT_WINDOW=256;
+var specBuf=new Float64Array(FFT_BINS); // shared buffer for spectrum magnitudes
+var bandPowers={delta:0,theta:0,alpha:0,beta:0,gamma:0};
+
+function computeSpectrum(chanIdx){
+  var buf=simState.buffers[chanIdx],wp=simState.writePos[chanIdx],n=FFT_WINDOW;
+  // Extract window of samples
+  var win=new Float64Array(n);
+  for(var i=0;i<n;i++){var idx=(wp-n+i+BUFSIZE)%BUFSIZE;win[i]=buf[idx];}
+  // Hamming window
+  for(var i=0;i<n;i++){win[i]*=0.54-0.46*Math.cos(TAU*i/(n-1));}
+  // DFT at 128 frequencies from 0.5 to 60 Hz
+  var fftMin=0.5,fftMax=60;
+  for(var b=0;b<FFT_BINS;b++){
+    var f=fftMin+(fftMax-fftMin)*b/(FFT_BINS-1),real=0,imag=0;
+    for(var i=0;i<n;i++){var phi=TAU*f*i/SAMPLE_RATE;real+=win[i]*Math.cos(phi);imag+=win[i]*Math.sin(phi);}
+    specBuf[b]=Math.sqrt(real*real+imag*imag)/n;
+  }
+  // Compute band powers from DFT
+  var bands={delta:[0.5,4],theta:[4,8],alpha:[8,13],beta:[13,30],gamma:[30,60]};
+  ['delta','theta','alpha','beta','gamma'].forEach(function(bn){
+    var r=bands[bn],sum=0,cnt=0;
+    for(var b=0;b<FFT_BINS;b++){var f=fftMin+(fftMax-fftMin)*b/(FFT_BINS-1);if(f>=r[0]&&f<=r[1]){sum+=specBuf[b]*specBuf[b];cnt++;}}
+    bandPowers[bn]=cnt>0?sum/cnt:0;
+  });
+}
+
+// Compute band power for one channel in a specific band (for topo)
+function getBandPower(chanIdx,bandName){
+  var buf=simState.buffers[chanIdx],wp=simState.writePos[chanIdx],n=FFT_WINDOW;
+  var win=new Float64Array(n);
+  for(var i=0;i<n;i++){var idx=(wp-n+i+BUFSIZE)%BUFSIZE;win[i]=buf[idx];}
+  var bands={delta:[0.5,4],theta:[4,8],alpha:[8,13],beta:[13,30],gamma:[30,60]},r=bands[bandName];
+  // Use Goertzel-like for just this band
+  var sum=0,cnt=0,step=(r[1]-r[0])/24;
+  for(var f=r[0];f<=r[1];f+=step){var real=0,imag=0;for(var i=0;i<n;i++){var phi=TAU*f*i/SAMPLE_RATE;real+=win[i]*Math.cos(phi);imag+=win[i]*Math.sin(phi);}sum+=real*real+imag*imag;cnt++;}return cnt>0?Math.sqrt(sum/cnt)/n:0;
+}
+
+// Topographic map — electrode positions (10-20 2D projection)
+var topoPos=[
+  {x:-0.3,y:-0.72},{x:0.3,y:-0.72},
+  {x:-0.52,y:-0.38},{x:0.52,y:-0.38},
+  {x:-0.62,y:0},{x:0.62,y:0},
+  {x:-0.38,y:0.52},{x:0.38,y:0.52}
+];
+function idw(x,y,vals){var sum=0,wSum=0;for(var i=0;i<topoPos.length;i++){var dx=x-topoPos[i].x,dy=y-topoPos[i].y,d2=dx*dx+dy*dy;if(d2<0.0001)d2=0.0001;var w=1/d2;sum+=vals[i]*w;wSum+=w;}return wSum>0?sum/wSum:0;}
+function valToColor(v,min,max){
+  if(max-min<1e-9)return [0,128,255];
+  var t=(v-min)/(max-min);t=t<0?0:t>1?1:t;
+  // blue -> cyan -> green -> yellow -> red
+  var r,g,b;
+  if(t<0.25){var s=t/0.25;r=0;g=Math.floor(128*s);b=Math.floor(255-127*s);}
+  else if(t<0.5){var s=(t-0.25)/0.25;r=0;g=Math.floor(128+127*s);b=Math.floor(128-128*s);}
+  else if(t<0.75){var s=(t-0.5)/0.25;r=Math.floor(255*s);g=Math.floor(255-128*s);b=0;}
+  else{var s=(t-0.75)/0.25;r=255;g=Math.floor(127-127*s);b=0;}
+  return [r,g,b];
+}
+function drawTopoMap(){var canvas=document.getElementById('topoCanvas'),w=canvas.width=200,h=canvas.height=200,ctx=canvas.getContext('2d'),cx=w/2,cy=h/2,r=85,band=document.getElementById('topoBand').value;var vals=[];for(var i=0;i<channels.length;i++){vals.push(getBandPower(i,band));}var min=vals[0],max=vals[0];for(var i=1;i<vals.length;i++){if(vals[i]<min)min=vals[i];if(vals[i]>max)max=vals[i];}if(max<1e-9)max=1;var img=ctx.createImageData(w,h);for(var py=0;py<h;py++){for(var px=0;px<w;px++){var dx=(px-cx)/r,dy=(py-cy)/r;if(dx*dx+dy*dy>1){var idx=(py*w+px)*4;img.data[idx+3]=0;continue;}var v=idw(dx,dy,vals),col=valToColor(v,min,max),idx=(py*w+px)*4;img.data[idx]=col[0];img.data[idx+1]=col[1];img.data[idx+2]=col[2];img.data[idx+3]=255;}}ctx.putImageData(img,0,0);// Head outline + nose
+  ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy-r-2);ctx.lineTo(cx+6,cy-r-14);ctx.lineTo(cx-6,cy-r-14);ctx.closePath();ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fill();
+  // Electrode dots
+  for(var i=0;i<topoPos.length;i++){var ex=cx+topoPos[i].x*r,ey=cy+topoPos[i].y*r;ctx.fillStyle=channels[i].color;ctx.beginPath();ctx.arc(ex,ey,3,0,TAU);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,ey,1.2,0,TAU);ctx.fill();}
+  // Label
+  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(band.toUpperCase(),cx,cy+r+16);
+}
+
+// Spectrum canvas draw
+function drawSpectrum(){
+  var canvas=document.getElementById('spectrumCanvas'),w=canvas.width=256,h=canvas.height=130,ctx=canvas.getContext('2d');
+  ctx.fillStyle='#080c12';ctx.fillRect(0,0,w,h);
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=0.5;
+  for(var y=0;y<h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  // Band shading
+  var bands=[{n:'delta',s:0.5,e:4,c:'rgba(163,113,247,0.08)'},{n:'theta',s:4,e:8,c:'rgba(88,166,255,0.08)'},{n:'alpha',s:8,e:13,c:'rgba(63,185,80,0.08)'},{n:'beta',s:13,e:30,c:'rgba(210,153,29,0.08)'},{n:'gamma',s:30,e:60,c:'rgba(248,81,73,0.08)'}];
+  for(var j=0;j<bands.length;j++){var b=bands[j],x0=bands[j].s/60*w,x1=bands[j].e/60*w;ctx.fillStyle=b.c;ctx.fillRect(x0,0,x1-x0,h);}
+  // Spectrum line
+  if(specBuf[0]===0&&specBuf[1]===0)return; // no data yet
+  var maxV=0;for(var i=0;i<FFT_BINS;i++){if(specBuf[i]>maxV)maxV=specBuf[i];}if(maxV<1e-9)return;
+  var dbFloor=-40;
+  ctx.strokeStyle='#58a6ff';ctx.lineWidth=1.6;ctx.shadowColor='#58a6ff';ctx.shadowBlur=3;ctx.beginPath();
+  for(var i=0;i<FFT_BINS;i++){var db=20*Math.log10(specBuf[i]/maxV),ny=h-(db-dbFloor)/(-dbFloor)*h;if(ny<0)ny=0;if(ny>h)ny=h;var sx=i/(FFT_BINS-1)*w;if(i===0)ctx.moveTo(sx,ny);else ctx.lineTo(sx,ny);}
+  ctx.stroke();ctx.shadowBlur=0;
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='9px monospace';
+  [0,10,20,30,40,50,60].forEach(function(f){ctx.fillText(f+'Hz',f/60*w-8,h-4);});
+}
+
+// Band power bars
+function updateBandBars(){
+  var container=document.getElementById('bandBars'),bands=['delta','theta','alpha','beta','gamma'],colors=['#a371f7','#58a6ff','#3fb950','#d2991d','#f85149'],labels=['δ','θ','α','β','γ'];
+  var total=bandPowers.delta+bandPowers.theta+bandPowers.alpha+bandPowers.beta+bandPowers.gamma;
+  if(total===0)total=1;
+  var h='';
+  for(var i=0;i<bands.length;i++){var pct=Math.round(bandPowers[bands[i]]/total*100),w=Math.min(100,Math.round(pct*1.5));h+='<div class="band-bar-wrap"><span class="band-bar-label" style="color:'+colors[i]+'">'+labels[i]+'</span><div class="band-bar-track"><div class="band-bar-fill" style="width:'+w+'%;background:'+colors[i]+'"></div></div><span class="band-bar-val">'+pct+'%</span></div>';}
+  container.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════ EVENT INJECTION
+function injectEvent(type){
+  var t=simState.time,label='';
+  // Inject transient into last ~20 samples of relevant channels
+  var nSamp=Math.floor(0.3*SAMPLE_RATE); // 300ms worth
+  var affectedChans=[];
+  switch(type){
+    case'stim':label='视觉刺激';affectedChans=[6,7];break; // O1,O2
+    case'mi':label='运动想象';affectedChans=[4,5];break; // C3,C4
+    case'blink':label='眨眼';affectedChans=[0,1];break; // Fp1,Fp2
+    case'error':label='错误反应';affectedChans=[2,3,4,5];break; // F3,F4,C3,C4
+  }
+  var amp=(type==='blink'?0.9:type==='error'?-0.45:0.4);
+  for(var c=0;c<affectedChans.length;c++){
+    var ci=affectedChans[c],buf=simState.buffers[ci],wp=simState.writePos[ci];
+    for(var i=0;i<nSamp;i++){var idx=(wp-nSamp+i+BUFSIZE)%BUFSIZE,env=Math.exp(-Math.pow((i-nSamp*0.15)/(nSamp*0.2),2));buf[idx]+=amp*env*(type==='error'?1:1);}
+  }
+  simState.events.push({time:t,type:type,label:label});
+  if(simState.events.length>50)simState.events.shift();
+  updateEventLog();
+}
+
+function updateEventLog(){
+  var log=document.getElementById('evtLog'),events=simState.events;
+  if(!events.length){log.innerHTML='<span style="color:var(--text-dim)">暂无事件</span>';return;}
+  var h='';
+  for(var i=Math.max(0,events.length-8);i<events.length;i++){var e=events[i];h+='<div class="evt-log-entry">T+'+e.time.toFixed(2)+'s <span style="color:var(--accent)">'+e.label+'</span></div>';}
+  log.innerHTML=h;log.scrollTop=log.scrollHeight;
+}
+
+// ═══════════════════════════════════════════ RECORDING
+var recSamples=0,MAX_REC=60*SAMPLE_RATE;
+
+function toggleRecording(){
+  if(simState.recording){stopRecording();}else{startRecording();}
+}
+function startRecording(){
+  simState.recording=true;simState.recBuf=[];simState.recStartTime=simState.time;recSamples=0;
+  for(var c=0;c<channels.length;c++)simState.recBuf.push([]);
+  var btn=document.getElementById('recBtn');btn.textContent='⏹ 停止录制';btn.classList.add('recording');
+}
+function stopRecording(){
+  simState.recording=false;
+  var btn=document.getElementById('recBtn');btn.textContent='🔴 开始录制';btn.classList.remove('recording');
+  document.getElementById('recTime').textContent='';
+  exportCSV();
+}
+function updateRecTime(){
+  if(!simState.recording)return;
+  var elapsed=simState.time-simState.recStartTime;
+  document.getElementById('recTime').textContent='录制中: '+elapsed.toFixed(1)+'s / 60s';
+  if(elapsed>=60)stopRecording();
+}
+function exportCSV(){
+  var bufs=simState.recBuf;if(!bufs||!bufs[0]||!bufs[0].length)return;
+  var rows=[],n=bufs[0].length;rows.push('timestamp,Fp1,Fp2,F3,F4,C3,C4,O1,O2');
+  var dt=1/SAMPLE_RATE;
+  for(var i=0;i<n;i++){var row=[(i*dt).toFixed(3)];for(var c=0;c<channels.length;c++){row.push(bufs[c][i]!==undefined?bufs[c][i].toFixed(6):'0');}rows.push(row.join(','));}
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'}),url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='eeg_recording_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════ SIM CANVAS CLICK
+function handleSimClick(e){
+  var canvas=document.getElementById('simCanvas'),rect=canvas.getBoundingClientRect(),y=e.clientY-rect.top;
+  var chH=(rect.height-4)/channels.length,clickedCh=Math.floor((y-2)/chH);
+  if(clickedCh>=0&&clickedCh<channels.length){simState.selectedChan=clickedCh;document.getElementById('chanSelect').value=clickedCh;}
+}
+
+// ═══════════════════════════════════════════ SIM RENDER LOOP
+var simCanvas=document.getElementById('simCanvas'),simCtx=simCanvas.getContext('2d'),lastFrameTime=0,simAnimId=null;
+
+function simResize(){
+  var wrap=simCanvas.parentElement,rect=wrap.getBoundingClientRect();
+  simCanvas.width=rect.width*2;simCanvas.height=rect.height*2;
+}
+
+function simTick(timestamp){
+  if(!simState.running){simAnimId=requestAnimationFrame(simTick);return;}
+  if(!lastFrameTime)lastFrameTime=timestamp;
+  var elapsed=(timestamp-lastFrameTime)/1000;
+  if(elapsed<1/(SIM_FPS+8)){simAnimId=requestAnimationFrame(simTick);return;}
+  lastFrameTime=timestamp;simState.frameCount++;
+
+  var dt=1/SAMPLE_RATE,genCount=Math.round(SAMPLE_RATE*elapsed*simState.speed);
+  if(genCount<1)genCount=1;if(genCount>15)genCount=15;
+
+  // Generate samples
+  for(var c=0;c<channels.length;c++){
+    var block=generateSamples(c,genCount,dt,simState.scenario,simState.time),buf=simState.buffers[c],wp=simState.writePos[c];
+    for(var i=0;i<block.length;i++){buf[(wp+i)%BUFSIZE]=block[i];}
+    simState.writePos[c]=(wp+block.length)%BUFSIZE;
+    // Recording
+    if(simState.recording){for(var i=0;i<block.length;i++){simState.recBuf[c].push(block[i]);if(simState.recBuf[c].length>MAX_REC)simState.recBuf[c].shift();}}
+  }
+  simState.time+=genCount*dt;
+  updateRecTime();
+
+  // ── Render waveform display ──
+  simResize();
+  var cw=simCanvas.width,ch=simCanvas.height,ctx=simCtx;
+  ctx.fillStyle='#080c12';ctx.fillRect(0,0,cw,ch);
+  var nCh=channels.length,labelW=60,plotX=labelW,plotW=cw-plotX-8,chH=(ch-4)/nCh;
+  var visibleSamples=Math.floor(plotW*0.8);if(visibleSamples<100)visibleSamples=100;if(visibleSamples>BUFSIZE-10)visibleSamples=BUFSIZE-10;
+
+  for(var c=0;c<nCh;c++){
+    var y0=2+c*chH,yMid=y0+chH/2,buf=simState.buffers[c],wp=simState.writePos[c],chObj=channels[c];
+    // Selection highlight
+    if(c===simState.selectedChan){ctx.fillStyle='rgba(88,166,255,0.06)';ctx.fillRect(plotX,y0,plotW,chH);}
+    else{ctx.fillStyle=c%2===0?'rgba(255,255,255,0.01)':'rgba(0,0,0,0.1)';ctx.fillRect(plotX,y0,plotW,chH);}
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(plotX,yMid);ctx.lineTo(plotX+plotW,yMid);ctx.stroke();
+    var yScale=chH*0.35*simState.gain;
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.beginPath();ctx.moveTo(plotX-4,yMid-yScale);ctx.lineTo(plotX,yMid-yScale);ctx.stroke();ctx.beginPath();ctx.moveTo(plotX-4,yMid+yScale);ctx.lineTo(plotX,yMid+yScale);ctx.stroke();
+    // Label
+    ctx.fillStyle=chObj.color;ctx.font='bold 13px monospace';ctx.textAlign='right';ctx.fillText(chObj.name,plotX-8,yMid+4);
+    // Waveform
+    ctx.strokeStyle=chObj.color;ctx.lineWidth=1.4;ctx.shadowColor=chObj.color;ctx.shadowBlur=2;ctx.beginPath();
+    var drawn=false;
+    for(var i=0;i<visibleSamples;i++){var idx=(wp-visibleSamples+i+BUFSIZE)%BUFSIZE;if(idx<0)idx+=BUFSIZE;var sx=plotX+(i/visibleSamples)*plotW,sy=yMid-buf[idx]*yScale*simState.gain;if(!drawn){ctx.moveTo(sx,sy);drawn=true;}else ctx.lineTo(sx,sy);}
+    ctx.stroke();ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(plotX,y0+chH);ctx.lineTo(plotX+plotW,y0+chH);ctx.stroke();
+  }
+
+  // Event markers
+  var now=simState.time,visDur=visibleSamples/SAMPLE_RATE;
+  for(var e=0;e<simState.events.length;e++){var ev=simState.events[e];if(now-ev.time>visDur)continue;var ex=plotX+plotW*(1-(now-ev.time)/visDur);ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();ctx.moveTo(ex,2);ctx.lineTo(ex,ch-4);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='9px monospace';ctx.fillText(ev.label,ex+4,14);}
+
+  // Time
+  ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='10px monospace';ctx.textAlign='right';ctx.fillText('T+'+simState.time.toFixed(1)+'s',cw-12,14);
+
+  // ── Analysis updates (decoupled) ──
+  if(simState.frameCount%6===0){computeSpectrum(simState.selectedChan);drawSpectrum();updateBandBars();}
+  if(simState.frameCount%12===0){drawTopoMap();}
+
+  simAnimId=requestAnimationFrame(simTick);
+}
+
+function simStart(){simState.running=true;lastFrameTime=0;if(!simAnimId)simAnimId=requestAnimationFrame(simTick);}
+function simStop(){simState.running=false;}
+function simToggle(){if(simState.running)simStop();else simStart();updateSimControls();}
+
+// ═══════════════════════════════════════════ BUILD CONTROLS
+function buildControls(){
+  var bar=document.getElementById('controlsBar'),h='';
+  h+='<div class="ctrl-group"><label>情境</label><select id="scenarioSelect">';
+  Object.keys(scenarios).forEach(function(key){h+='<option value="'+key+'"'+(key===simState.scenario?' selected':'')+'>'+scenarios[key].icon+' '+scenarios[key].label+'</option>';});
+  h+='</select></div>';
+  var bands=[{id:'delta',label:'δ',color:'var(--accent-purple)'},{id:'theta',label:'θ',color:'var(--accent)'},{id:'alpha',label:'α',color:'var(--accent-green)'},{id:'beta',label:'β',color:'var(--accent-orange)'},{id:'gamma',label:'γ',color:'var(--accent-red)'}];
+  bands.forEach(function(b){h+='<div class="ctrl-group"><label style="color:'+b.color+'">'+b.label+'</label><input type="range" class="ctrl-slider" id="band-'+b.id+'" min="0" max="2" step="0.05" value="'+simState.bandGains[b.id]+'"><span class="ctrl-val" id="val-'+b.id+'">'+simState.bandGains[b.id].toFixed(2)+'</span></div>';});
+  h+='<div class="ctrl-group"><label>噪声</label><input type="range" class="ctrl-slider" id="noiseSlider" min="0" max="0.15" step="0.002" value="'+simState.noise+'"><span class="ctrl-val" id="val-noise">'+simState.noise.toFixed(3)+'</span></div>';
+  h+='<div class="ctrl-group"><label>增益</label><input type="range" class="ctrl-slider" id="gainSlider" min="0.2" max="3" step="0.1" value="'+simState.gain+'"><span class="ctrl-val" id="val-gain">'+simState.gain.toFixed(1)+'</span></div>';
+  h+='<div class="ctrl-group"><label>速度</label>';
+  [0.5,1,2].forEach(function(s){h+='<button class="ctrl-btn'+(simState.speed===s?' active-ctrl':'')+'" data-speed="'+s+'">'+s+'x</button>';});
+  h+='</div>';
+  h+='<button class="ctrl-btn active-ctrl" id="btnPause">⏸ 暂停</button>';
+  h+='<button class="ctrl-btn" id="btnReset">↺ 重置</button>';
+  bar.innerHTML=h;
+  bindControlEvents();
+  buildChanSelect();
+}
+
+function updateSimControls(){
+  var btn=document.getElementById('btnPause');
+  if(btn){btn.textContent=simState.running?'⏸ 暂停':'▶ 播放';if(simState.running)btn.classList.add('active-ctrl');else btn.classList.remove('active-ctrl');}
+}
+
+function buildChanSelect(){
+  var sel=document.getElementById('chanSelect'),h='';
+  channels.forEach(function(ch,i){h+='<option value="'+i+'"'+(i===simState.selectedChan?' selected':'')+'>'+ch.name+' ('+({pf:'前额',f:'额叶',c:'中央',o:'枕叶'})[ch.region]+')</option>';});
+  sel.innerHTML=h;
+}
+
+function bindControlEvents(){
+  document.getElementById('scenarioSelect').addEventListener('change',function(){simState.scenario=this.value;simState.phase=[];channels.forEach(function(){simState.phase.push({});});simState.events=[];updateEventLog();});
+  ['delta','theta','alpha','beta','gamma'].forEach(function(b){document.getElementById('band-'+b).addEventListener('input',function(){simState.bandGains[b]=parseFloat(this.value);document.getElementById('val-'+b).textContent=this.value;});});
+  document.getElementById('noiseSlider').addEventListener('input',function(){simState.noise=parseFloat(this.value);document.getElementById('val-noise').textContent=this.value;});
+  document.getElementById('gainSlider').addEventListener('input',function(){simState.gain=parseFloat(this.value);document.getElementById('val-gain').textContent=parseFloat(this.value).toFixed(1);});
+  document.querySelectorAll('[data-speed]').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('[data-speed]').forEach(function(b){b.classList.remove('active-ctrl');});this.classList.add('active-ctrl');simState.speed=parseFloat(this.dataset.speed);});});
+  document.getElementById('btnPause').addEventListener('click',function(){simToggle();updateSimControls();});
+  document.getElementById('btnReset').addEventListener('click',function(){simState.phase=[];simState.time=0;simState.events=[];updateEventLog();channels.forEach(function(){simState.phase.push({});});for(var c=0;c<channels.length;c++){simState.buffers[c].fill(0);simState.writePos[c]=0;}});
+  // Channel select
+  document.getElementById('chanSelect').addEventListener('change',function(){simState.selectedChan=parseInt(this.value);});
+  // Event buttons
+  document.querySelectorAll('.evt-btn').forEach(function(btn){btn.addEventListener('click',function(){injectEvent(this.dataset.evt);});});
+  // Record button
+  document.getElementById('recBtn').addEventListener('click',toggleRecording);
+  // Topo band
+  document.getElementById('topoBand').addEventListener('change',drawTopoMap);
+  // Canvas click for channel selection
+  document.getElementById('simCanvas').addEventListener('click',handleSimClick);
+}
+
+// ═══════════════════════════════════════════ TAB SWITCHING
+function switchTab(tabName){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
+  document.querySelector('[data-tab="'+tabName+'"]').classList.add('active');
+  document.getElementById('tab-'+tabName).classList.add('active');
+  if(tabName==='simulator'){document.getElementById('sidebar').style.display='none';simResize();if(!simAnimId){lastFrameTime=0;simAnimId=requestAnimationFrame(simTick);}}
+  else{document.getElementById('sidebar').style.display='';}
+}
+
+// ═══════════════════════════════════════════ INIT
+updateCatCounts();renderGallery();buildControls();
+document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){switchTab(this.dataset.tab);});});
+document.querySelectorAll('.sidebar .cat-item').forEach(function(btn){btn.addEventListener('click',function(){document.querySelectorAll('.sidebar .cat-item').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');activeCat=btn.dataset.cat;renderGallery();});});
+document.getElementById('search').addEventListener('input',function(e){searchQuery=e.target.value;renderGallery();});
+document.getElementById('overlayClose').addEventListener('click',closeDetail);
+document.getElementById('overlay').addEventListener('click',function(e){if(e.target===this)closeDetail();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDetail();});
+</script>
+</body>
+</html>
