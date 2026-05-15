@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCI 应用仿真平台</title>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--text-dim:#8b949e;--accent:#58a6ff;--green:#3fb950;--orange:#d2991d;--red:#f85149;--purple:#a371f7;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── top bar ── */
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.topbar h1{font-size:1.05rem;font-weight:600;}
+.topbar .subtitle{font-size:0.75rem;color:var(--text-dim);}
+.back-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:0.82rem;font-family:inherit;display:none;}
+.back-btn:hover{border-color:var(--accent);}
+
+/* ── main content ── */
+.main{flex:1;overflow-y:auto;}
+
+/* ── dashboard ── */
+.dashboard{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:24px 32px;}
+.app-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.15s;}
+.app-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+.app-card .icon{font-size:2.5rem;margin-bottom:10px;}
+.app-card h3{font-size:1rem;margin-bottom:4px;}
+.app-card .paradigm{display:inline-block;font-size:0.7rem;padding:2px 10px;border-radius:10px;font-weight:500;margin-bottom:8px;}
+.app-card .desc{font-size:0.8rem;color:var(--text-dim);line-height:1.4;}
+.paradigm-ssvep{background:rgba(63,185,80,0.15);color:var(--green);}
+.paradigm-mi{background:rgba(88,166,255,0.15);color:var(--accent);}
+.paradigm-p300{background:rgba(210,153,29,0.15);color:var(--orange);}
+.paradigm-alpha{background:rgba(163,113,247,0.15);color:var(--purple);}
+.paradigm-hybrid{background:rgba(248,81,73,0.15);color:var(--red);}
+
+/* ── detail view ── */
+.detail-view{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.detail-view.active{display:flex;}
+.detail-body{display:flex;flex:1;overflow:hidden;}
+.sim-main{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;min-width:0;}
+.sim-main canvas{border-radius:10px;max-width:100%;max-height:100%;}
+
+/* ── right panel ── */
+.sim-panel{width:300px;min-width:300px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:14px;gap:12px;}
+.panel-box{border:1px solid var(--border);border-radius:8px;padding:10px;}
+.panel-box h4{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);margin-bottom:6px;}
+.eeg-canvas{width:100%;height:100px;background:#080c12;border-radius:6px;display:block;margin-bottom:4px;}
+.step-dots{display:flex;gap:8px;justify-content:center;margin:4px 0;}
+.step-dot{width:10px;height:10px;border-radius:50%;background:var(--border);transition:all 0.3s;}
+.step-dot.done{background:var(--accent);}
+.step-dot.current{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+.step-label{font-size:0.72rem;color:var(--text-dim);text-align:center;min-height:16px;}
+.stage-title{font-size:0.85rem;font-weight:600;text-align:center;}
+
+/* ── control bar ── */
+.ctrl-bar{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;}
+.ctrl-btn{padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:0.82rem;font-family:inherit;transition:all 0.15s;}
+.ctrl-btn:hover{border-color:var(--accent);}
+.ctrl-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.speed-btn{padding:4px 10px;font-size:0.72rem;}
+.speed-btn.active{border-color:var(--accent);color:var(--accent);}
+.cycle-info{font-size:0.75rem;color:var(--text-dim);margin-left:auto;}
+</style>
+</head>
+<body>
+
+<!-- ════════ TOP BAR ════════ -->
+<div class="topbar">
+  <button class="back-btn" id="backBtn" onclick="goDashboard()">← 返回</button>
+  <h1 id="topTitle">BCI 应用仿真平台</h1>
+  <span class="subtitle" id="topSub">Brain-Computer Interface Applications</span>
+</div>
+
+<!-- ════════ DASHBOARD ════════ -->
+<div class="main" id="dashboard"></div>
+
+<!-- ════════ DETAIL VIEW ════════ -->
+<div class="detail-view" id="detailView">
+  <div class="detail-body">
+    <div class="sim-main"><canvas id="simMain"></canvas></div>
+    <div class="sim-panel" id="simPanel">
+      <div class="panel-box">
+        <h4>EEG 信号</h4>
+        <canvas class="eeg-canvas" id="eegCanvas0"></canvas>
+        <canvas class="eeg-canvas" id="eegCanvas1"></canvas>
+      </div>
+      <div class="panel-box">
+        <h4>仿真进度</h4>
+        <div class="stage-title" id="stageTitle"></div>
+        <div class="step-dots" id="stepDots"></div>
+        <div class="step-label" id="stepLabel"></div>
+      </div>
+      <div class="panel-box">
+        <h4>BCI 范式</h4>
+        <div style="font-size:0.78rem;line-height:1.5;color:var(--text-dim)" id="paradigmInfo"></div>
+      </div>
+    </div>
+  </div>
+  <div class="ctrl-bar" id="ctrlBar"></div>
+</div>
+
+<script>
+var TAU=2*Math.PI;
+// roundRect polyfill for older browsers
+(function(){if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){if(typeof r==='number')r={tl:r,tr:r,br:r,bl:r};this.beginPath();this.moveTo(x+r.tl,y);this.lineTo(x+w-r.tr,y);this.quadraticCurveTo(x+w,y,x+w,y+r.tr);this.lineTo(x+w,y+h-r.br);this.quadraticCurveTo(x+w,y+h,x+w-r.br,y+h);this.lineTo(x+r.bl,y+h);this.quadraticCurveTo(x,y+h,x,y+h-r.bl);this.lineTo(x,y+r.tl);this.quadraticCurveTo(x,y,x+r.tl,y);this.closePath();};}})();
+
+// ═══════════════════════════════════════ APP DEFINITIONS
+var apps=[
+  {id:'phone',title:'手机拨号器',icon:'📱',paradigm:'SSVEP',pClass:'ssvep',
+   desc:'注视以不同频率闪烁的数字键，产生稳态视觉诱发电位（SSVEP），系统检测频率分量确定用户注视的按键，实现无手拨号。',
+   bciInfo:'SSVEP BCI 利用枕叶视觉皮层对不同闪烁频率的谐振响应。每个按键以唯一频率（8-15Hz）闪烁，受试者注视目标按键时，Oz 电极 EEG 中出现对应的频率分量及谐波。',
+   stages:['空闲等待','注视目标键','SSVEP 频率检测','识别按键拨号','号码完成'],
+   channels:[{name:'Oz',color:'#a371f7'},{name:'Fz',color:'#58a6ff'}],
+   duration:3.5,color:'#3fb950'},
+  {id:'wheelchair',title:'智能轮椅',icon:'🦽',paradigm:'运动想象',pClass:'mi',
+   desc:'用户通过运动想象控制轮椅方向：想象左手运动→左转，想象右手运动→右转，想象双脚运动→前进，静息→停止。',
+   bciInfo:'运动想象 BCI 利用感觉运动皮层 μ/β 节律的事件相关去同步（ERD）现象。C3 电极（右侧肢体）和 C4 电极（左侧肢体）的 ERD 不对称性用于解码运动意图方向。',
+   stages:['空闲等待','运动想象意图','ERD 模式检测','轮椅执行移动','完成导航'],
+   channels:[{name:'C3',color:'#58a6ff'},{name:'C4',color:'#d2991d'}],
+   duration:3,color:'#58a6ff'},
+  {id:'home',title:'智能家居',icon:'🏠',paradigm:'P300',pClass:'p300',
+   desc:'家居设备以行列方式闪烁，用户关注目标设备。当目标闪烁时，大脑产生 P300 电位，系统据此识别用户意图并控制设备开关。',
+   bciInfo:'P300 是一种事件相关电位（ERP），出现在新奇或目标刺激后约 300ms 的中央-顶叶正波。在 Oddball 范式中，低概率目标刺激诱发更大的 P300 波幅。',
+   stages:['空闲等待','行列闪烁刺激','用户关注目标','P300 检测','设备控制'],
+   channels:[{name:'Cz',color:'#d2991d'},{name:'Pz',color:'#a371f7'}],
+   duration:3.5,color:'#d2991d'},
+  {id:'prosthetic',title:'假肢控制',icon:'🦾',paradigm:'运动想象',pClass:'mi',
+   desc:'通过多类运动想象控制假肢的不同抓握动作。想象右手张开→假肢张开，想象右手抓握→假肢握拳，不同 MI 模式映射到不同手部动作。',
+   bciInfo:'多类运动想象通过解码不同肢体部位（右手、左手、脚、舌）的 ERD 空间模式实现。C3 和 C4 电极上的 μ/β 频段功率变化在时频域中形成可区分的特征向量。',
+   stages:['空闲等待','想象抓握类型','ERD 特征解码','假肢执行动作','触觉反馈'],
+   channels:[{name:'C3',color:'#58a6ff'},{name:'C4',color:'#d2991d'}],
+   duration:3,color:'#58a6ff'},
+  {id:'speller',title:'P300 拼写器',icon:'⌨️',paradigm:'P300',pClass:'p300',
+   desc:'6×6 字符矩阵的行和列随机闪烁。用户注视目标字符，当该字符所在行/列闪烁时，大脑产生 P300 响应，行列交叉定位目标字符。',
+   bciInfo:'P300 Speller 由 Farwell & Donchin（1988）提出，是 BCI 领域最经典的应用。通过行列强化（Row-Column Intensification）范式，单次检测精度可达 90%+。',
+   stages:['空闲等待','行列随机闪烁','用户注视目标','P300 检测字符','文本输出'],
+   channels:[{name:'Cz',color:'#d2991d'},{name:'Pz',color:'#a371f7'}],
+   duration:3.5,color:'#d2991d'},
+  {id:'neurogame',title:'神经康复游戏',icon:'🎮',paradigm:'Alpha 神经反馈',pClass:'alpha',
+   desc:'通过实时 Alpha 波（8-13Hz）功率调节游戏角色高度。放松→Alpha 增强→角色上升，专注→Alpha 抑制→角色下降，训练患者自主调控脑节律。',
+   bciInfo:'Alpha 神经反馈训练通过奖励 Alpha 功率的增加（放松状态）或减少（专注状态）来调节大脑活动。枕叶 Alpha 是最容易自主调控的 EEG 节律，广泛应用于 ADHD 和焦虑症康复。',
+   stages:['空闲基线','Alpha 功率监测','神经反馈调节','角色响应移动','得分/奖励'],
+   channels:[{name:'Oz',color:'#a371f7'},{name:'Pz',color:'#3fb950'}],
+   duration:2.5,color:'#a371f7'},
+  {id:'drone',title:'无人机控制',icon:'🚁',paradigm:'MI + SSVEP 混合',pClass:'hybrid',
+   desc:'混合 BCI：运动想象控制水平方向（左/右/前进），SSVEP 控制垂直方向（上升/下降/悬停），双模态互补实现三维空间导航。',
+   bciInfo:'混合 BCI 结合两种范式优势：MI 提供连续比例控制（方向舵），SSVEP 提供离散指令选择（高度档位）。多模态融合可显著提高 BCI 的信息传输率和控制自由度。',
+   stages:['空闲等待','MI+SSVEP 并行','双模态特征融合','无人机三维移动','到达目标'],
+   channels:[{name:'C3/C4(MI)',color:'#58a6ff'},{name:'Oz(SSVEP)',color:'#a371f7'}],
+   duration:3,color:'#f85149'}
+];
+
+// ═══════════════════════════════════════ SIMULATION STATE
+var sim={appId:null,stage:0,cycle:0,maxCycles:3,running:false,speed:1,stageTime:0,data:{},lastStage:-1};
+var animId=null,lastT=0;
+var currentApp=null;
+
+// ═══════════════════════════════════════ SEEDED PRNG
+function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+// ═══════════════════════════════════════ EEG RENDERER FOR PANEL
+function drawEegPanel(canvasId,chanIdx,params){
+  var cv=document.getElementById(canvasId),w=cv.width=cv.offsetWidth*2,h=cv.height=100*2,ctx=cv.getContext('2d');
+  ctx.fillStyle='#080c12';ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=0.5;
+  for(var y=0;y<h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  if(!params||!params.active)return;
+  var R=rng(42+chanIdx*7),n=400,data=new Float64Array(n),ch=params.channels[chanIdx];
+  for(var i=0;i<n;i++){var t=i/n*params.duration,v=0;if(params.type==='ssvep'){for(var k=0;k<params.freqs.length;k++)v+=params.amps[k]*Math.sin(TAU*params.freqs[k]*t);}else if(params.type==='erds'){var env=params.envFn?params.envFn(t):1;for(var k=0;k<params.freqs.length;k++)v+=params.amps[k]*env*Math.sin(TAU*params.freqs[k]*t+R()*Math.PI);}else if(params.type==='p300'){for(var k=0;k<params.freqs.length;k++)v+=params.amps[k]*Math.sin(TAU*params.freqs[k]*t+R()*Math.PI);var ev=(params.eventTime||0.4);if(t>ev&&t<ev+0.4)v+=params.eventAmp*Math.exp(-Math.pow((t-ev)/0.12,2));}else if(params.type==='alpha'){var aEnv=params.alphaEnvFn?params.alphaEnvFn(t):0.5;v+=aEnv*Math.sin(TAU*10*t+R()*Math.PI)+0.15*Math.sin(TAU*20*t+R()*Math.PI);v+=(R()-0.5)*2*0.02;}else{for(var k=0;k<params.freqs.length;k++)v+=params.amps[k]*Math.sin(TAU*params.freqs[k]*t+R()*Math.PI);v+=(R()-0.5)*2*0.015;}data[i]=v;}
+  ctx.strokeStyle=ch.color;ctx.lineWidth=1.6;ctx.shadowColor=ch.color;ctx.shadowBlur=3;ctx.beginPath();
+  var yMid=h/2,xScale=w/n,yScale=0.4*h;
+  for(var i=0;i<n;i++){var x=i*xScale,y=yMid-data[i]*yScale;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+  ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle=ch.color;ctx.font='bold 11px monospace';ctx.textAlign='left';ctx.fillText(ch.name,8,16);
+}
+
+// ═══════════════════════════════════════ MAIN SIM CANVAS RENDERER
+var simCanvas=document.getElementById('simMain'),simCtx=simCanvas.getContext('2d');
+
+function simResize(){var rect=simCanvas.parentElement.getBoundingClientRect();simCanvas.width=Math.max(400,rect.width*2);simCanvas.height=Math.max(300,rect.height*2);}
+
+// ── App renderers ──
+var appRenderers={};
+
+// 1. PHONE DIALER (SSVEP)
+appRenderers.phone=function(ctx,w,h,app){
+  var R=rng(sim.cycle*100+sim.stage),keys=['1','2','3','4','5','6','7','8','9','*','0','#'];
+  var keyFreqs=[8,9,10,11,12,13,14,15,8.5,9.5,10.5,11.5];
+  var targetNum=sim.data.targetNum||'13855550192';
+  var digitIdx=sim.data.digitIdx||0,step=sim.stage>=2?Math.min(1,(sim.stageTime-0.5)/2):0;
+  if(sim.stage>=2&&sim.data.digitIdx===undefined){sim.data.digitIdx=0;sim.data.targetNum=targetNum.split('');}
+
+  // Phone body
+  var phoneW=240,phoneH=440,px=(w-phoneW)/2,py=(h-phoneH)/2;
+  ctx.fillStyle='#1a1f2e';ctx.strokeStyle='#444';ctx.lineWidth=3;
+  ctx.beginPath();ctx.roundRect(px,py,phoneW,phoneH,20);ctx.fill();ctx.stroke();
+
+  // Screen
+  var sy=py+30;
+  ctx.fillStyle='#0a0e14';ctx.fillRect(px+20,sy,phoneW-40,60);ctx.strokeStyle='#333';ctx.strokeRect(px+20,sy,phoneW-40,60);
+  // Displayed number
+  var displayed='';
+  for(var d=0;d<=Math.min(digitIdx+(step>0.8?1:0),targetNum.length-1);d++)displayed+=targetNum[d];
+  ctx.fillStyle='#3fb950';ctx.font='28px monospace';ctx.textAlign='center';
+  ctx.fillText(displayed||'_',px+phoneW/2,sy+42);
+
+  // Keypad
+  var kx0=px+24,ky0=sy+80,kw=60,kh=60,gap=8;
+  for(var i=0;i<12;i++){
+    var col=i%3,row=Math.floor(i/3),kx=kx0+col*(kw+gap),ky=ky0+row*(kh+gap);
+    var isTarget=sim.stage>=1&&digitIdx<targetNum.length&&keys[i]===targetNum[digitIdx];
+    var flickerVal=0;
+    if(isTarget&&sim.stage>=1){flickerVal=0.5+0.5*Math.sin(TAU*keyFreqs[i]*sim.stageTime*2);}
+    var bright=isTarget?flickerVal:0;
+    ctx.fillStyle='rgb('+Math.floor(30+bright*180)+','+Math.floor(35+bright*80)+','+Math.floor(40+bright*60)+')';
+    ctx.fillRect(kx,ky,kw,kh);ctx.strokeStyle=bright>0.5?'#3fb950':'#444';ctx.lineWidth=1.5;ctx.strokeRect(kx,ky,kw,kh);
+    ctx.fillStyle=bright>0.3?'#fff':'#888';ctx.font='bold 24px sans-serif';ctx.textAlign='center';ctx.fillText(keys[i],kx+kw/2,ky+kh/2+8);
+  }
+
+  // Call button
+  var callY=ky0+4*(kh+gap)+10;
+  ctx.fillStyle='#3fb950';ctx.beginPath();ctx.roundRect(px+40,callY,phoneW-80,36,18);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText('📞 呼叫',px+phoneW/2,callY+25);
+
+  // Stage-specific annotations
+  if(sim.stage>=2&&step>0.2){ctx.fillStyle='rgba(63,185,80,0.3)';var kx=kx0+(digitIdx%3)*(kw+gap),ky=ky0+Math.floor(digitIdx/3)*(kh+gap);ctx.fillRect(kx-2,ky-2,kw+4,kh+4);ctx.strokeStyle='#3fb950';ctx.lineWidth=2;ctx.strokeRect(kx-2,ky-2,kw+4,kh+4);
+    ctx.fillStyle='#3fb950';ctx.font='11px sans-serif';ctx.fillText('✓ 检测到 SSVEP',kx+kw/2,ky-8);}
+
+  if(sim.stage>=4){ctx.fillStyle='rgba(63,185,80,0.9)';ctx.font='18px sans-serif';ctx.fillText('📞 正在呼叫...',px+phoneW/2,callY-20);}
+};
+
+// 2. WHEELCHAIR (MI)
+appRenderers.wheelchair=function(ctx,w,h,app){
+  var mx=w/2,my=h/2,roomW=500,roomH=380;ctx.save();ctx.translate(mx,my);
+  // Room
+  ctx.fillStyle='#1a1f2e';ctx.fillRect(-roomW/2,-roomH/2,roomW,roomH);ctx.strokeStyle='#444';ctx.strokeRect(-roomW/2,-roomH/2,roomW,roomH);
+  // Furniture
+  var furn=[{x:-120,y:-80,w:60,h:100,l:'桌'},{x:100,y:40,w:80,h:50,l:'床'},{x:-60,y:70,w:70,h:40,l:'沙发'},{x:60,y:-120,w:50,h:30,l:'花盆'}];
+  furn.forEach(function(f){ctx.fillStyle='#252b3a';ctx.fillRect(f.x-f.w/2,f.y-f.h/2,f.w,f.h);ctx.strokeStyle='#555';ctx.strokeRect(f.x-f.w/2,f.y-f.h/2,f.w,f.h);ctx.fillStyle='#555';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText(f.l,f.x,f.y+4);});
+  // Path
+  var pts=[{x:-160,y:-100},{x:-160,y:80},{x:160,y:80},{x:160,y:-100},{x:0,y:-130}],progress=Math.min(1,sim.stage>=2?(sim.stageTime-0.5)/app.duration:0),totalPts=(sim.stage>=2?Math.min(Math.floor(progress*(pts.length-1))+1,pts.length-1):0);
+  ctx.strokeStyle='rgba(88,166,255,0.15)';ctx.lineWidth=3;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.stroke();ctx.setLineDash([]);
+  // Wheelchair position
+  var segIdx=Math.min(totalPts,pts.length-2),segT=totalPts>0?(progress*(pts.length-1))%1:0;
+  var wx=pts[segIdx].x+(pts[segIdx+1].x-pts[segIdx].x)*segT,wy=pts[segIdx].y+(pts[segIdx+1].y-pts[segIdx].y)*segT;
+  // Draw wheelchair
+  ctx.fillStyle='#2a3a5c';ctx.beginPath();ctx.arc(wx,wy,18,0,TAU);ctx.fill();ctx.strokeStyle='#58a6ff';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='#fff';ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🦽',wx,wy+6);
+  // Direction arrows
+  if(sim.stage>=2&&sim.stageTime>1){ctx.strokeStyle='rgba(88,166,255,0.5)';ctx.lineWidth=2;ctx.beginPath();var dx=pts[segIdx+1].x-wx,dy=pts[segIdx+1].y-wy,len=Math.sqrt(dx*dx+dy*dy);ctx.moveTo(wx,wy);ctx.lineTo(wx+dx/len*30,wy+dy/len*30);ctx.stroke();}
+  ctx.restore();
+  if(sim.stage>=1){ctx.fillStyle='rgba(88,166,255,0.7)';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText(sim.stage===1?'🤚 运动想象中...':'',mx,my-roomH/2-20);}
+  if(sim.stage>=3&&sim.stageTime>1){ctx.fillStyle='rgba(88,166,255,0.9)';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('✓ ERD 检测 → 轮椅移动',w/2,h-20);}
+};
+
+// 3. SMART HOME (P300)
+appRenderers.home=function(ctx,w,h,app){
+  var roomW=420,roomH=320,rx=(w-roomW)/2,ry=(h-roomH)/2;
+  // Room
+  ctx.fillStyle='#1a1e28';ctx.fillRect(rx,ry,roomW,roomH);ctx.strokeStyle='#444';ctx.strokeRect(rx,ry,roomW,roomH);
+  // Floor
+  ctx.fillStyle='#1e2330';ctx.fillRect(rx,ry+roomH*0.55,roomW,roomH*0.45);ctx.strokeStyle='#333';ctx.beginPath();ctx.moveTo(rx,ry+roomH*0.55);ctx.lineTo(rx+roomW,ry+roomH*0.55);ctx.stroke();
+  // Devices in 2×3 grid
+  var devs=[{x:rx+65,y:ry+55,icon:'💡',label:'灯',state:'on',col:'#d2991d'},{x:rx+210,y:ry+55,icon:'📺',label:'电视',state:'off',col:'#555'},{x:rx+355,y:ry+55,icon:'❄️',label:'空调',state:'off',col:'#555'},{x:rx+65,y:ry+180,icon:'🚪',label:'门锁',state:'locked',col:'#555'},{x:rx+210,y:ry+180,icon:'🪟',label:'窗帘',state:'closed',col:'#555'},{x:rx+355,y:ry+180,icon:'🔊',label:'音箱',state:'off',col:'#555'}];
+  var targetIdx=sim.data.targetIdx||0;if(sim.data.targetIdx===undefined)sim.data.targetIdx=Math.floor(Math.random()*devs.length);
+  targetIdx=sim.data.targetIdx;
+  var flashIdx=sim.stage>=1?Math.floor(sim.stageTime*6)%devs.length:-1;
+  devs.forEach(function(d,i){
+    var isTarget=i===targetIdx,isFlashing=i===flashIdx&&sim.stage>=1;
+    ctx.fillStyle=isFlashing?'rgba(210,153,29,0.25)':'rgba(30,35,50,0.6)';
+    ctx.fillRect(d.x-40,d.y-30,80,70);ctx.strokeStyle=isFlashing?'#d2991d':(isTarget&&sim.stage>=3?'#3fb950':'#444');ctx.lineWidth=isFlashing?2:1;ctx.strokeRect(d.x-40,d.y-30,80,70);
+    ctx.font='28px sans-serif';ctx.textAlign='center';ctx.fillText(d.icon,d.x,d.y);ctx.fillStyle='#aaa';ctx.font='10px sans-serif';ctx.fillText(d.label,d.x,d.y+26);
+    if(sim.stage>=3&&isTarget&&sim.stageTime>1){ctx.fillStyle='#3fb950';ctx.font='bold 11px sans-serif';ctx.fillText('已控制',d.x,d.y-38);}
+  });
+  if(sim.stage>=3&&sim.stageTime>1){devs[targetIdx].state='on';}
+  // Status bar
+  ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(rx,ry+roomH-28,roomW,28);
+  var st=devs[targetIdx].state==='on'?'已开启':'等待控制';
+  ctx.fillStyle='#aaa';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('设备状态: '+devs[targetIdx].label+' - '+st,rx+roomW/2,ry+roomH-10);
+};
+
+// 4. PROSTHETIC HAND (MI)
+appRenderers.prosthetic=function(ctx,w,h,app){
+  var cx=w/2,cy=h/2,handH=180,handW=100;
+  var graspType=sim.stage>=2?Math.min(3,Math.floor((sim.stageTime-0.3)/1.2)):0;
+  var graspNames=['张开','握拳','捏取','指示'];
+  // Palm
+  ctx.fillStyle='#3a4a6a';ctx.strokeStyle='#5a6a8a';ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(cx-handW/2,cy-handH*0.3,handW,handH*0.7,20);ctx.fill();ctx.stroke();
+  // Fingers based on grasp
+  var fingerAngles=graspType===0?[0,0,0,0,0]:graspType===1?[-60,-60,-60,-60,-50]:graspType===2?[-70,-70,0,0,0]:[-60,0,0,0,-60];
+  var fy=cy-handH*0.3;
+  ctx.strokeStyle='#5a6a8a';ctx.lineWidth=8;ctx.lineCap='round';
+  for(var f=0;f<5;f++){var fx=cx-handW/2+16+f*20,ang=fingerAngles[f]*Math.PI/180,fl=55,ex=fx+Math.sin(ang)*fl,ey=fy-Math.cos(ang)*fl;ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(ex,ey);ctx.stroke();ctx.fillStyle='#4a5a7a';ctx.beginPath();ctx.arc(ex,ey,6,0,TAU);ctx.fill();}
+  // Label
+  ctx.fillStyle='#58a6ff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText(graspNames[graspType],cx,cy+handH*0.6);
+  if(sim.stage>=1&&sim.stage<=2){ctx.fillStyle='rgba(88,166,255,0.7)';ctx.font='12px sans-serif';ctx.fillText(sim.stage===1?'🤚 想象'+graspNames[graspType]+'...':'✓ 解码 → 假肢执行',cx,cy-handH*0.5-20);}
+};
+
+// 5. SPELLER (P300)
+appRenderers.speller=function(ctx,w,h,app){
+  var mat='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_←'.split('');
+  var gridW=360,gridH=360,gx=(w-gridW)/2,gy=(h-gridH)/2-20,cols=6,rows=6,cellW=gridW/cols,cellH=gridH/rows;
+  var targetWord=sim.data.targetWord||'HELLO';if(!sim.data.targetWord)sim.data.targetWord='HELLO';
+  var charIdx=sim.data.charIdx||0,output=sim.data.output||'';
+  var flashRow=sim.stage>=1?Math.floor(sim.stageTime*4)%rows:-1;
+  var flashCol=sim.stage>=1?Math.floor(sim.stageTime*4+1.5)%cols:-1;
+  for(var r=0;r<rows;r++)for(var c=0;c<cols;c++){var i=r*cols+c,ch=mat[i],cx=gx+c*cellW,cy=gy+r*cellH,isHit=sim.stage>=3&&r===flashRow&&c===flashCol&&sim.stageTime>1;ctx.fillStyle=isHit?'rgba(210,153,29,0.4)':(r===flashRow||c===flashCol)?'rgba(210,153,29,0.15)':'rgba(20,25,35,0.8)';ctx.fillRect(cx,cy,cellW-2,cellH-2);ctx.strokeStyle='#444';ctx.strokeRect(cx,cy,cellW-2,cellH-2);ctx.fillStyle=(r===flashRow||c===flashCol)?'#fff':'#888';ctx.font='13px monospace';ctx.textAlign='center';ctx.fillText(ch,cx+cellW/2,cy+cellH/2+4);}
+  // Output area
+  var oy=gy+gridH+15;
+  ctx.fillStyle='#0a0e14';ctx.fillRect(gx,oy,gridW,40);ctx.strokeStyle='#333';ctx.strokeRect(gx,oy,gridW,40);
+  ctx.fillStyle='#d2991d';ctx.font='20px monospace';ctx.textAlign='center';ctx.fillText(sim.data.output||'_',gx+gridW/2,oy+28);
+  var targetWord=sim.data.targetWord||'HELLO';
+  if(sim.stage>=1){ctx.fillStyle='rgba(210,153,29,0.7)';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('Target: '+targetWord,gx+gridW/2,gy-16);}
+};
+
+// 6. NEURO GAME (Alpha NF)
+appRenderers.neurogame=function(ctx,w,h,app){
+  var gw=500,gh=300,gx=(w-gw)/2,gy=(h-gh)/2;
+  ctx.fillStyle='#0a0e18';ctx.fillRect(gx,gy,gw,gh);ctx.strokeStyle='#444';ctx.strokeRect(gx,gy,gw,gh);
+  // Ground
+  ctx.fillStyle='#1a2a1a';ctx.fillRect(gx,gy+gh*0.75,gw,gh*0.25);
+  // Obstacles
+  var obs=[{x:gx+120,y:gy+gh*0.75-25,w:22,h:22},{x:gx+260,y:gy+gh*0.75-30,w:18,h:30},{x:gx+380,y:gy+gh*0.75-20,w:25,h:20}];
+  obs.forEach(function(o){ctx.fillStyle='#d2991d';ctx.fillRect(o.x-o.w/2,o.y-o.h,o.w,o.h);});
+  // Character
+  var alphaPower=sim.stage>=2?0.3+0.5*Math.sin(sim.stageTime*1.3)*Math.sin(sim.stageTime*2.1):0.5;
+  var charY=gy+gh*0.75-30-alphaPower*80;
+  ctx.fillStyle='#a371f7';ctx.beginPath();ctx.arc(gx+80,charY,12,0,TAU);ctx.fill();ctx.fillStyle='#fff';ctx.font='16px sans-serif';ctx.textAlign='center';ctx.fillText('🧑',gx+80,charY+5);
+  // Alpha bar
+  var bw=20,bh=gh*0.6,bx=gx+gw-40,by=gy+20;
+  ctx.fillStyle='rgba(255,255,255,0.05)';ctx.fillRect(bx,by,bw,bh);var bfill=bh*(1-alphaPower);ctx.fillStyle='#a371f7';ctx.fillRect(bx,by+bfill,bw,bh-bfill);
+  ctx.fillStyle='#aaa';ctx.font='10px sans-serif';ctx.fillText('α',bx+bw/2,by-4);
+  // Score
+  var score=Math.floor(sim.stageTime*10);ctx.fillStyle='#3fb950';ctx.font='20px monospace';ctx.textAlign='left';ctx.fillText('得分: '+score,gx+16,gy+30);
+  if(sim.stage>=2){ctx.fillStyle='#a371f7';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('Alpha ↑ 放松 → 上升',gx+gw/2,gy+gh-12);}
+};
+
+// 7. DRONE (MI+SSVEP hybrid)
+appRenderers.drone=function(ctx,w,h,app){
+  var gw=460,gh=320,gx=(w-gw)/2,gy=(h-gh)/2;
+  // Sky + ground
+  ctx.fillStyle='#0a0e1e';ctx.fillRect(gx,gy,gw,gh);
+  var groundY=gy+gh*0.82;ctx.fillStyle='#1a2820';ctx.fillRect(gx,groundY,gw,gh*0.18);
+  // Waypoints
+  var wpts=[{x:gx+80,y:gy+80},{x:gx+180,y:gy+40},{x:gx+300,y:gy+120},{x:gx+380,y:gy+60}];
+  ctx.fillStyle='rgba(88,166,255,0.2)';
+  wpts.forEach(function(p){ctx.beginPath();ctx.arc(p.x,p.y,8,0,TAU);ctx.fill();ctx.strokeStyle='rgba(88,166,255,0.5)';ctx.lineWidth=1;ctx.stroke();});
+  // Flight path
+  ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(gx+30,gy+gh*0.6);
+  wpts.forEach(function(p){ctx.lineTo(p.x,p.y);});ctx.stroke();ctx.setLineDash([]);
+  // Drone position
+  var progress=sim.stage>=2?Math.min(1,(sim.stageTime-0.5)/app.duration):0,wpIdx=Math.min(Math.floor(progress*wpts.length),wpts.length-1),wpT=(progress*wpts.length)%1;
+  var dx=wpIdx>0?wpts[wpIdx].x-wpts[wpIdx-1].x:0,dy=wpIdx>0?wpts[wpIdx].y-wpts[wpIdx-1].y:0;
+  var droneX=wpIdx===0?gx+30+progress*(wpts[0].x-gx-30):wpts[wpIdx===1?0:wpIdx-1].x+dx*wpT;
+  var droneY=wpIdx===0?gy+gh*0.6+progress*(wpts[0].y-gy-gh*0.6):wpts[wpIdx===1?0:wpIdx-1].y+dy*wpT;
+  ctx.font='30px sans-serif';ctx.textAlign='center';ctx.fillText('🚁',droneX,droneY);
+  // Reached waypoint
+  wpIdx=Math.min(wpIdx,wpts.length-1);if(sim.stage>=2&&wpT>0.8&&wpIdx<wpts.length-1)wpIdx++;for(var i=0;i<=wpIdx;i++){ctx.fillStyle='rgba(63,185,80,0.5)';ctx.beginPath();ctx.arc(wpts[i].x,wpts[i].y,5,0,TAU);ctx.fill();}
+  // Control indicators
+  if(sim.stage>=1){ctx.fillStyle='rgba(88,166,255,0.7)';ctx.font='11px sans-serif';ctx.fillText('MI 方向控制',gx+50,gy+18);}
+  if(sim.stage>=1){ctx.fillStyle='rgba(163,113,247,0.7)';ctx.font='11px sans-serif';ctx.fillText('SSVEP 高度控制',gx+gw-120,gy+18);}
+};
+
+// ═══════════════════════════════════════ SIMULATION ENGINE
+function startSim(appId){
+  sim.appId=appId;currentApp=apps.find(function(a){return a.id===appId;});sim.stage=0;sim.cycle=0;sim.stageTime=0;sim.running=true;sim.data={};sim.maxCycles=3;sim.lastStage=-1;
+  if(appId==='speller')sim.maxCycles=5;
+  if(appId==='neurogame')sim.maxCycles=1;
+  document.getElementById('detailView').classList.add('active');
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('backBtn').style.display='block';
+  document.getElementById('topTitle').textContent='📱 '+currentApp.title;
+  document.getElementById('topSub').textContent=currentApp.paradigm+' BCI';
+  document.getElementById('paradigmInfo').textContent=currentApp.bciInfo;
+  buildControls();updateStepUI();lastT=0;
+  if(!animId)animId=requestAnimationFrame(simLoop);
+}
+
+function simLoop(ts){
+  if(!sim.running){animId=requestAnimationFrame(simLoop);return;}
+  if(!lastT)lastT=ts;var dt=Math.min((ts-lastT)/1000,0.1);lastT=ts;
+  sim.stageTime+=dt*sim.speed;
+  var nStages=currentApp.stages.length;
+  if(sim.stageTime>=currentApp.duration){sim.stageTime-=currentApp.duration;sim.stage++;if(sim.stage>=nStages){sim.stage=0;sim.cycle++;if(sim.cycle>=sim.maxCycles){sim.running=false;updateCtrlBtns();}}}
+  if(sim.stage!==sim.lastStage){onStageChange(sim.lastStage,sim.stage);sim.lastStage=sim.stage;}
+  updateStepUI();
+  // Render main
+  simResize();var ctx=simCtx,cw=simCanvas.width,ch=simCanvas.height;
+  ctx.fillStyle='#0a0e14';ctx.fillRect(0,0,cw,ch);
+  if(appRenderers[currentApp.id])appRenderers[currentApp.id](ctx,cw,ch,currentApp);
+  // Render EEG panels
+  var eegParams=getEegParams();
+  drawEegPanel('eegCanvas0',0,eegParams);
+  drawEegPanel('eegCanvas1',1,eegParams);
+  animId=requestAnimationFrame(simLoop);
+}
+
+function onStageChange(from,to){
+  var app=currentApp;
+  if(app.id==='phone'&&to===4){if(!sim.data.targetNum)sim.data.targetNum='13855550192';sim.data.digitIdx=(sim.data.digitIdx||0)+1;if(sim.data.digitIdx>=sim.data.targetNum.length)sim.data.digitIdx=0;}
+  if(app.id==='speller'&&to===4){if(!sim.data.targetWord)sim.data.targetWord='HELLO';var ci=(sim.data.charIdx||0);if(ci<sim.data.targetWord.length){sim.data.output=(sim.data.output||'')+sim.data.targetWord[ci];sim.data.charIdx=ci+1;}}
+  if(to===0){if(app.id==='phone')sim.data.digitIdx=0;if(app.id==='speller'){sim.data.charIdx=0;sim.data.output='';}}
+}
+
+function getEegParams(){
+  var app=currentApp,duration=3,freqs=[10],amps=[0.5],type='standard',channels=app.channels;
+  switch(app.id){
+    case'phone':type='ssvep';freqs=[12,24];amps=[0.6,0.2];channels=app.channels;break;
+    case'wheelchair':type='erds';freqs=[10,20];amps=[0.5,0.3];channels=app.channels;break;
+    case'home':type='p300';freqs=[5,12,20];amps=[0.2,0.3,0.2];channels=app.channels;eventTime=0.35;eventAmp=0.5;break;
+    case'prosthetic':type='erds';freqs=[10,18];amps=[0.5,0.3];channels=app.channels;break;
+    case'speller':type='p300';freqs=[5,12,20];amps=[0.2,0.3,0.2];channels=app.channels;eventTime=0.35;eventAmp=0.5;break;
+    case'neurogame':type='alpha';freqs=[8,12];amps=[0.4,0.3];channels=app.channels;break;
+    case'drone':type='erds';freqs=[10,20];amps=[0.4,0.3];channels=app.channels;break;
+  }
+  var p={type:type,freqs:freqs,amps:amps,channels:channels,duration:duration,active:true};
+  if(type==='ssvep')p.freqs=freqs;p.amps=amps;
+  if(type==='p300'){p.eventTime=0.35;p.eventAmp=0.5;}
+  if(type==='alpha'){p.alphaEnvFn=function(t){return sim.stage>=2?0.3+0.5*Math.sin(t*1.3)*Math.sin(t*2.1):0.5;};}
+  if(type==='erds'){p.envFn=function(t){return sim.stage>=2?1-0.5*Math.exp(-(t-0.3)*4):1;};}
+  return p;
+}
+
+function updateStepUI(){
+  var n=currentApp.stages.length,dots='',i;
+  for(i=0;i<n;i++){var cls='step-dot';if(i<sim.stage)cls+=' done';else if(i===sim.stage)cls+=' current';dots+='<div class="'+cls+'"></div>';}
+  document.getElementById('stepDots').innerHTML=dots;
+  document.getElementById('stageTitle').textContent='阶段 '+(sim.stage+1)+'/'+n;
+  document.getElementById('stepLabel').textContent=currentApp.stages[sim.stage];
+}
+
+function buildControls(){
+  var bar=document.getElementById('ctrlBar'),h='';
+  h+='<button class="ctrl-btn active" id="btnPlay" onclick="togglePlay()">⏸ 暂停</button>';
+  h+='<button class="ctrl-btn" onclick="stepFwd()">⏭ 下一步</button>';
+  h+='<button class="ctrl-btn" onclick="resetSim()">↺ 重置</button>';
+  h+='<span style="color:var(--text-dim);font-size:0.72rem;">速度</span>';
+  [0.5,1,2].forEach(function(s){h+='<button class="ctrl-btn speed-btn'+(sim.speed===s?' active':'')+'" onclick="setSpeed('+s+')">'+s+'x</button>';});
+  h+='<span class="cycle-info" id="cycleInfo"></span>';
+  bar.innerHTML=h;updateCtrlBtns();
+}
+function updateCtrlBtns(){var b=document.getElementById('btnPlay');if(b){b.textContent=sim.running?'⏸ 暂停':'▶ 播放';b.className='ctrl-btn'+(sim.running?' active':'');}document.getElementById('cycleInfo').textContent='循环 '+(sim.cycle+1)+'/'+sim.maxCycles;}
+function togglePlay(){sim.running=!sim.running;lastT=0;updateCtrlBtns();}
+function stepFwd(){sim.stageTime=currentApp.duration;updateCtrlBtns();}
+function resetSim(){sim.stage=0;sim.cycle=0;sim.stageTime=0;sim.lastStage=-1;sim.running=true;sim.data={};lastT=0;updateCtrlBtns();}
+function setSpeed(s){sim.speed=s;lastT=0;document.querySelectorAll('.speed-btn').forEach(function(b){b.classList.remove('active');if(parseFloat(b.textContent)===s)b.classList.add('active');});}
+
+// ═══════════════════════════════════════ DASHBOARD
+function buildDashboard(){
+  var h='';apps.forEach(function(a){
+    h+='<div class="app-card" onclick="startSim(\''+a.id+'\')"><div class="icon">'+a.icon+'</div><h3>'+a.title+'</h3><span class="paradigm paradigm-'+a.pClass+'">'+a.paradigm+' BCI</span><div class="desc">'+a.desc+'</div></div>';
+  });
+  document.getElementById('dashboard').innerHTML=h;
+}
+function goDashboard(){
+  sim.running=false;document.getElementById('detailView').classList.remove('active');
+  document.getElementById('dashboard').style.display='';document.getElementById('backBtn').style.display='none';
+  document.getElementById('topTitle').textContent='BCI 应用仿真平台';document.getElementById('topSub').textContent='Brain-Computer Interface Applications';
+}
+
+// ═══════════════════════════════════════ INIT
+buildDashboard();
+document.addEventListener('keydown',function(e){if(e.key==='Escape')goDashboard();});
+</script>
+</body>
+</html>
